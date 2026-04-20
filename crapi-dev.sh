@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # crAPI Hacking Lab Setup & Development Script
-# Automated setup
+# Automated setup for API security testing and vulnerability exploitation practice
+# Based on OWASP API Top 10 vulnerabilities
 
 set -e
 
@@ -145,7 +146,7 @@ show_hacking_info() {
     echo "  Mailhog: http://localhost:8025"
     echo ""
     echo -e "${GREEN}API Endpoints:${NC}"
-    echo "  Identity Service: http://localhost:8080"
+    echo "  Identity Service: http://localhost:8090"
     echo "  Community Service: http://localhost:8087"
     echo "  Workshop Service: http://localhost:8000"
     echo "  Chatbot Service: http://localhost:5002"
