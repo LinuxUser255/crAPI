@@ -15,8 +15,8 @@ services:
   crapi-identity:
     container_name: crapi-identity
     image: crapi/crapi-identity:${VERSION:-latest}
-    # ports:
-    #  - "${LISTEN_IP:-127.0.0.1}:8080:8080"
+    ports:
+      - "${LISTEN_IP:-127.0.0.1}:8090:${IDENTITY_SERVER_PORT:-8090}"
     volumes:
       - ./keys:/app/keys
     environment:
