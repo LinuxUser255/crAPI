@@ -10,7 +10,7 @@ know more about crAPI, please check [crAPI's overview][overview].
 
 ## QuickStart Guide
 
-### For the super quickstart, run the [quickstart.sh][quickstart.sh]
+### For the super quickstart, run the [quickstart.sh](quickstart.sh)
 
 
 ### Docker and docker compose
