@@ -242,24 +242,28 @@ configure_environment() {
 #------------------------------------------------------------------------------
 deploy_stack() {
     debug "deploy_stack"  # §5 debug at function start
-    printf '%b\n' "${CYAN}[1/4]${NC} Pulling latest crAPI images (excluding chatbot)..."
+    printf '%b\n' "${CYAN}[1/5]${NC} Pulling latest crAPI images (excluding chatbot)..."
     local pull_services  # §8 local; separate declaration from assignment to preserve exit code
     pull_services=$(docker compose config --services | grep -v '^crapi-chatbot$')  # §5 no-fork grep
     # shellcheck disable=SC2086  # §4 intentional word split: service names must expand separately
     $COMPOSE_CMD pull $pull_services
 
-    printf '%b\n' "${CYAN}[2/4]${NC} Cleaning up any existing instances..."
+    printf '%b\n' "${CYAN}[2/5]${NC} Building chatbot image from local source..."
+    # shellcheck disable=SC2086  # §4 intentional word split on $COMPOSE_CMD
+    $COMPOSE_CMD build crapi-chatbot  # never pull upstream; local build contains SSL fix
+
+    printf '%b\n' "${CYAN}[3/5]${NC} Cleaning up any existing instances..."
     # shellcheck disable=SC2086  # §4 intentional word split on $COMPOSE_CMD
     $COMPOSE_CMD down -v 2>/dev/null || true
 
-    printf '%b\n' "${CYAN}[3/4]${NC} Starting crAPI hacking lab..."
+    printf '%b\n' "${CYAN}[4/5]${NC} Starting crAPI hacking lab..."
     LISTEN_IP="$LISTEN_IP" \
     ENABLE_SHELL_INJECTION="$ENABLE_SHELL_INJECTION" \
     ENABLE_LOG4J="$ENABLE_LOG4J" \
     TLS_ENABLED="true" \
     $COMPOSE_CMD -f docker-compose.yml --compatibility up -d  # §4 intentional split on $COMPOSE_CMD
 
-    printf '%b\n' "${CYAN}[4/4]${NC} Waiting for services to be ready..."
+    printf '%b\n' "${CYAN}[5/5]${NC} Waiting for services to be ready..."
     sleep 15
 }
 
