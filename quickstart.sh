@@ -242,9 +242,11 @@ configure_environment() {
 #------------------------------------------------------------------------------
 deploy_stack() {
     debug "deploy_stack"  # §5 debug at function start
-    printf '%b\n' "${CYAN}[1/4]${NC} Pulling latest crAPI images..."
-    # shellcheck disable=SC2086  # §4 intentional word split: "docker compose" must expand to 2 tokens
-    $COMPOSE_CMD pull
+    printf '%b\n' "${CYAN}[1/4]${NC} Pulling latest crAPI images (excluding chatbot)..."
+    local pull_services  # §8 local; separate declaration from assignment to preserve exit code
+    pull_services=$(docker compose config --services | grep -v '^crapi-chatbot$')  # §5 no-fork grep
+    # shellcheck disable=SC2086  # §4 intentional word split: service names must expand separately
+    $COMPOSE_CMD pull $pull_services
 
     printf '%b\n' "${CYAN}[2/4]${NC} Cleaning up any existing instances..."
     # shellcheck disable=SC2086  # §4 intentional word split on $COMPOSE_CMD
