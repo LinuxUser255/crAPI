@@ -8,9 +8,9 @@ crAPI is modern, built on top of a microservices architecture. When time has
 come to buy your first car, sign up for an account and start your journey. To
 know more about crAPI, please check [crAPI's overview][overview].
 
-## QuickStart Guide
+# QuickStart Guide
 
-### For the super quickstart, run the [quickstart.sh](quickstart.sh) Shell Script
+## For the super quickstart, run the [quickstart.sh](quickstart.sh) Shell Script
 
 
 ### Docker and docker compose
