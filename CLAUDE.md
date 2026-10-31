@@ -52,6 +52,8 @@ IS_TESTING=True coverage run ./manage.py test --no-input crapi && coverage repor
 
 The web service has no test files — `npm run lint` (prettier check) is its only CI gate. CI (`.github/workflows/pr-build.yml`) also runs `golangci-lint` v2.2.1 against `services/community`, builds every image, brings the stack up, and runs `newman run ./postman_collections/crAPI.postman_collection.json -e ./postman_collections/crAPI.postman_environment.json` as the end-to-end check. Running that Newman collection locally is the fastest way to confirm a cross-service change didn't break the stack.
 
+`tests/oauth/run.sh` (add `--build` to rebuild identity first) is the end-to-end check for the OAuth authorization server: it **deletes all OAuth consents, tokens and codes** in the lab DB, then runs `smoke_test.py` against `http://localhost:8889` and exits non-zero on any failure. OAuth progress, errors and decisions are logged in `docs/oauth-devlog.md`; keep it current.
+
 ## Architecture notes that span files
 
 **Trust boundary.** Only `crapi-web` (8889 locally, 8888 upstream; 8443 for HTTPS; 30080/30443 as alternates), `crapi-identity` (8090), and `mailhog` (8025) are published to the host; everything else is reachable only on the internal Docker network. `crapi-web` is OpenResty, and `services/web/nginx.conf.template` + `nginx.ssl.conf.template` (templates rendered at container start, one block per protocol) define the real API surface: `/identity/`, `/community/`, `/workshop/`, `/chatbot/`, plus `/.well-known/jwks.json` proxied to the identity service's JWKS endpoint and `/mailhog/`. Adding a backend route means editing *both* templates, not just the service.

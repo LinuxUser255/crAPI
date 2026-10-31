@@ -39,7 +39,7 @@ shellcheck:
   stage: lint
   image: koalaman/shellcheck-alpine:v0.10.0
   script:
-    - shellcheck -x quickstart.sh scripts/lib/platform.sh
+    - shellcheck -x quickstart.sh scripts/lib/platform.sh tests/oauth/run.sh
     # crapi-dev.sh predates the style rules; gate on errors only
     - shellcheck -x -S error crapi-dev.sh
 
@@ -48,7 +48,7 @@ bash-3.2-syntax:
   stage: lint
   image: bash:3.2
   script:
-    - for f in quickstart.sh crapi-dev.sh scripts/lib/platform.sh; do bash -n "$f" && echo "ok $f"; done
+    - for f in quickstart.sh crapi-dev.sh scripts/lib/platform.sh tests/oauth/run.sh; do bash -n "$f" && echo "ok $f"; done
 
 compose-config:
   stage: lint
@@ -65,6 +65,7 @@ chatbot-python:
   image: python:3.11-slim
   script:
     - python -m compileall -q services/chatbot/src
+    - python -m py_compile tests/oauth/smoke_test.py
 
 #------------------------------------------------------------------------------
 # build

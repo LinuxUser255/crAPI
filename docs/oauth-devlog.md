@@ -97,13 +97,13 @@ What the smoke test covers: discovery is public; `/authorize` refuses requests w
 docker run --rm -v "$PWD/services/identity":/app -w /app gradle:8.1-jdk17-focal \
   gradle spotlessCheck test --no-daemon
 
-# Rebuild identity in the running lab
-cd deploy/docker && docker compose build crapi-identity \
-  && docker compose up -d --force-recreate --no-build crapi-identity
+# End-to-end against the running lab (43 checks; resets OAuth grants first)
+tests/oauth/run.sh            # or --build to rebuild crapi-identity from source first
 ```
 
-The end-to-end smoke test (43 checks) and its reset script currently live **outside the repo**, in a
-session scratch folder. Moving them into the repo (e.g. `tests/oauth/`) is open item **T1** below.
+See [tests/oauth/README.md](../tests/oauth/README.md). `run.sh` and `smoke_test.py` are linted in
+CI (shellcheck, bash 3.2 syntax, `py_compile`); the test itself needs the live stack, so it is not
+a CI job.
 
 ---
 
@@ -111,7 +111,7 @@ session scratch folder. Moving them into the repo (e.g. `tests/oauth/`) is open 
 
 | # | Item | Phase |
 |---|---|---|
-| T1 | Move the OAuth smoke test + reset script into the repo so anyone can rerun it | now |
+| ~~T1~~ | ~~Move the OAuth smoke test + reset script into the repo~~ — done 2026-10-30: `tests/oauth/` | — |
 | ~~T2~~ | ~~Commit phase 1 to `develop` and mirror~~ — done 2026-10-30 | — |
 | T3 | Root `/.well-known/oauth-authorization-server` in both nginx templates (today it's only under `/identity/api/oauth/`) | 3 |
 | T4 | Confirm D2 (port 8900) and whether DealerConnect serves HTTP or HTTPS | 3 |
