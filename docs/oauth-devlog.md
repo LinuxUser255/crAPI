@@ -5,6 +5,39 @@ broke and why, decisions taken, and what's next. Newest entries first within eac
 
 ---
 
+## ▶ Start here (handoff, 2026-10-31)
+
+**Branch `develop`, HEAD `a59a41b`.** Phases 1–4 done and merged to `main`; phase 5 (the single
+`OAUTH_MODE` flag + the first two weaknesses) committed to `develop` but **not yet on `main`**.
+
+**The design in one line:** one flag, `OAUTH_MODE` = `secure` | `vulnerable`, in `deploy/docker/.env`,
+read by identity + workshop + community. The lab ships `vulnerable` (D23). `vulnerable` opens the
+weaknesses; `secure` runs by the book. `tests/oauth/run.sh` pins `secure` for its baseline checks
+and restores the `.env` mode after.
+
+**Verify the lab is healthy, then pick up:**
+```bash
+tests/oauth/run.sh --ui --dealer --weaknesses   # full regression: 56 + 30 + 17 + checks
+```
+
+**Next task (T12): the remaining phase-5 weaknesses**, each wired to the *same* `OAUTH_MODE` flag
+(not a new toggle — that pattern was replaced, see D22), each with a `weaknesses.py` check. See the
+updated **Next** section at the bottom for the list and the `alg:none` lead. Then phase 6 (challenge
+docs, Postman, chatbot OpenAPI spec).
+
+**Mid-session stack fixes (committed to `develop`, unrelated to OAuth logic):**
+- `f7cc7c9` — the forum `/like` + `/dislike` routes in `crapi-openapi-spec.json` were missing the
+  OpenAPI-required `description`, which crashed the chatbot's MCP server (every chat → "Sorry, I
+  encountered an error"). Fixed; the chatbot works.
+- `03db239` — CI now runs `services/chatbot/validate_openapi_spec.py` so a bad spec edit can't crash
+  the chatbot again.
+- `a59a41b` — added `.claude/skills/crapi-dev-loop`, a project skill for the build/verify/ship loop.
+- A stuck crАPI **login spinner** seen during the session was stale browser-tab state from identity
+  restarting mid-request (the login saga has no fetch timeout); a hard refresh clears it. Not fixed
+  in code. The `🤖`/`👤` emoji-avatar `404`s in Burp are pre-existing and cosmetic.
+
+---
+
 ## Status
 
 | Phase | Scope | State |
@@ -318,9 +351,9 @@ bash 3.2 syntax, `py_compile`); the tests themselves need the live stack, so the
 | ~~T2~~ | ~~Commit phase 1~~ — done | — |
 | ~~T3~~ | ~~Root discovery in both nginx templates~~ — done (phase 3) | — |
 | ~~T4~~ | ~~Confirm DealerConnect port / scheme~~ — 8900, HTTP (D13) | — |
-| T5 | Revisit D3 (`ENABLE_OAUTH` default on) before the weaknesses land | 5 |
-| T6 | Refresh-token rotation (phase 1 reuses the same refresh token) | decide in 5 |
-| T7 | crAPI consent page shows a fallback icon for the missing `images/dealer-connect.png` | 5? |
+| ~~T5~~ | ~~Revisit `ENABLE_OAUTH` default~~ — settled: `ENABLE_OAUTH` stays the feature switch (on); secure/vulnerable is now `OAUTH_MODE` (default vulnerable, D23) | — |
+| T6 | Refresh-token rotation (phase 1 reuses the same refresh token) — decide: secure default vs teaching surface | 5 |
+| T7 | Missing `images/dealer-connect.png` → consent page shows a fallback icon | 5/6 |
 | ~~T8~~ | ~~Commit phase 2~~ — done | — |
 | ~~T9~~ | ~~Commit phase 3~~ — done | — |
 | ~~T10~~ | ~~Scope not enforced anywhere~~ — done (phase 4): Workshop enforces, Community is the gap | — |
@@ -330,19 +363,41 @@ bash 3.2 syntax, `py_compile`); the tests themselves need the live stack, so the
 
 ---
 
-## Next: Phase 5 plan
+## Next: finish phase 5, then phase 6
 
-The teaching weaknesses, each behind an `ENABLE_OAUTH_*` toggle (default = the safe behaviour built
-in phases 1–4, so nothing regresses until a toggle is flipped). Candidates, kept at the level of
-weakness class + OWASP category (step-by-step goes in `challenges.md`):
+**Pattern for every remaining weakness (don't deviate):** wire it to the *single* `OAUTH_MODE` flag
+(`app.oauth.mode` / `isVulnerable()` in identity; the `OAUTH_MODE != vulnerable` checks in the
+resource servers) — **not** a new per-weakness toggle (that was replaced, D22). Default to the
+secure behaviour. Add a check to `tests/oauth/weaknesses.py` that flips `OAUTH_MODE` and confirms the
+weakness opens in `vulnerable` and closes in `secure`, and keep the `smoke_test.py` secure baseline
+green. Unit-test with `ReflectionTestUtils.setField(oAuthService, "oauthMode", "vulnerable")`.
 
-- Loose `redirect_uri` validation (API8) — a toggle that relaxes the exact-match rule in `OAuthServiceImpl.isRegisteredRedirectUri`.
+**Done so far (phase 5):** loose `redirect_uri` (prefix match in `isRegisteredRedirectUri`) and scope
+not enforced (Workshop + Community). **Remaining candidates** (weakness class + OWASP category;
+step-by-step write-ups are phase 6):
+
+- Unsigned / `alg:none` token accepted (API2). **Lead to verify first:** `JwtProvider.validateJwtToken`
+  already has a `catch(ParseException) → PlainJWT.parse → return true` fallback that accepts *any*
+  unsigned token — a pre-existing, always-on, first-party crAPI JWT challenge. So the OAuth weakness
+  must gate a **new, OAuth-scoped** branch (an unsigned token carrying `scope`/`client_id`, which
+  only `generateOAuthToken` adds): rejected in secure mode, accepted in vulnerable; leave the
+  existing first-party behaviour untouched. Confirm this reading of `JwtProvider` before building.
 - Missing CSRF/PKCE protection on the flow (API2).
-- Scope enforcement is folded into the `OAUTH_MODE` flag (D22): `vulnerable` disables it, the over-privileged-token lesson.
-- Over-trust of unverified token claims (API2) — reuses the existing verify-vs-decode indirection.
+- Over-trust of unverified token claims (API2) — reuses the verify-vs-decode indirection
+  (`/identity/api/auth/verify` says valid/invalid; resource servers then decode `sub`/`scope`/`role`
+  unverified).
 - Weak client authentication / secret handling (API2/API8).
-- Token/code leakage via the client app (API2) — DealerConnect grows an optional leak behind a toggle.
+- Token/code leakage via the client app (API2) — DealerConnect grows an optional leak under `OAUTH_MODE`.
 - Consent that doesn't bind the grant (API1).
 
-Also revisit T5/T6 here (default-on, refresh rotation) and add challenge docs/Postman/chatbot-spec
-entries in phase 6.
+**Still open:** T5 (`ENABLE_OAUTH` is a separate feature switch, still default-on — fine; the
+secure/vulnerable choice is now `OAUTH_MODE`, default `vulnerable` per D23), T6 (refresh-token
+rotation — decide: secure default vs a teaching surface), T7 (missing `images/dealer-connect.png`
+so the consent page shows a fallback icon).
+
+**Phase 6:** challenge write-ups in `docs/challenges.md` + `docs/challengeSolutions.md`, Postman
+requests, and the OAuth routes added to the chatbot's `crapi-openapi-spec.json` (which the new CI
+validator will check). Each new chatbot-spec response needs a `description`.
+
+**When phase 5 is complete,** flip the status row to done, and remember phases 1–5 still need to
+reach `main` via a GitLab merge request from `develop` (main is currently a phase behind).
