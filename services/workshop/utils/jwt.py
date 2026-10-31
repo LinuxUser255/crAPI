@@ -24,6 +24,11 @@ Otherwise the request gets a 401.
 
 Nothing here validates a signature, so Identity's JWT weaknesses
 (services/identity/.../config/JwtProvider.java) apply to this service too.
+
+``scope_required`` additionally enforces an OAuth scope on a view. A delegated
+OAuth access token carries a ``scope`` claim; a first-party login token does
+not. The check only constrains delegated tokens, and only when
+``settings.OAUTH_SCOPE_ENFORCED`` is on (Workshop's default).
 """
 import requests
 import jwt
@@ -100,3 +105,46 @@ def jwt_auth_required(func):
             )
 
     return new_func
+
+
+def scope_required(required_scope):
+    """
+    Decorator enforcing that a delegated OAuth token holds ``required_scope``.
+
+    Apply it below ``jwt_auth_required`` so the token is already validated. A
+    first-party token (no ``scope`` claim) is always allowed; a delegated token
+    that lacks the scope is refused with 403, unless scope enforcement is off.
+
+    :param required_scope: the scope the view needs, e.g. "write:orders"
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def new_func(*args, **kwargs):
+            if settings.OAUTH_SCOPE_ENFORCED:
+                request = args[1]
+                token = request.META.get("HTTP_AUTHORIZATION", "")[7:]
+                try:
+                    claims = jwt.decode(token, options={"verify_signature": False})
+                except jwt.exceptions.DecodeError:
+                    claims = {}
+                # Only delegated tokens carry a scope claim; first-party tokens
+                # are not scope-limited and pass straight through.
+                if "scope" in claims:
+                    granted = claims.get("scope", "").split()
+                    if required_scope not in granted:
+                        logger.debug(
+                            "Token missing scope %s; has [%s]",
+                            required_scope,
+                            claims.get("scope", ""),
+                        )
+                        return Response(
+                            {"message": messages.INSUFFICIENT_SCOPE},
+                            status=status.HTTP_403_FORBIDDEN,
+                            content_type="application/json",
+                        )
+            return func(*args, **kwargs)
+
+        return new_func
+
+    return decorator

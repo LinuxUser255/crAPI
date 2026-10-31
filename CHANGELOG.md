@@ -4,6 +4,14 @@ Releases of this crAPI lab fork. Each `## [vX.Y.Z]` section becomes the notes of
 
 ## [Unreleased]
 
+### OAuth 2.0 (phase 4 of 6)
+
+- Resource servers now read a delegated token's `scope`. **Workshop requires `write:orders`** to
+  place an order; a token without it gets 403. First-party logins (no scope claim) are unaffected.
+- **Community deliberately does not enforce scope** on coupon creation — the intended inconsistency
+  for the lab. `ENABLE_OAUTH_SCOPE_CHECK=true` turns enforcement on in both services ("secure mode");
+  unset leaves the gap; `false` disables it in both.
+
 ### OAuth 2.0 (phase 3 of 6)
 
 - **DealerConnect** (`services/dealer-app`): a standalone third-party car-dealership portal that

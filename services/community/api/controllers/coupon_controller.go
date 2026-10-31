@@ -14,7 +14,11 @@
 
 // Coupon handlers behind /community/api/v2/coupon.
 //
-// AddNewCoupon stores a coupon code and amount in MongoDB. ValidateCoupon takes
+// AddNewCoupon stores a coupon code and amount in MongoDB. Its route asks for
+// the write:orders scope, but Community only enforces that when
+// ENABLE_OAUTH_SCOPE_CHECK is on; by default a delegated token missing the
+// scope still succeeds here, unlike at Workshop — the OAuth lab's scope gap.
+// ValidateCoupon takes
 // the request body as a raw BSON document and passes it straight into a Mongo
 // query (models.ValidateCode), which is the NoSQL injection challenge. The
 // coupons written here are what Workshop's ApplyCouponView reads from the same

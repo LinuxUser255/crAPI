@@ -18,7 +18,9 @@ Shop views of the Workshop service, served under /workshop/api/shop/.
 - ProductView: list products; POST lets any authenticated user add one.
 - OrderControlView: POST places an order, debiting available credit by
   price * quantity with no check that quantity is positive (a negative
-  quantity raises the balance: challenges 8 and 9). GET fetches any order
+  quantity raises the balance: challenges 8 and 9). A delegated OAuth token
+  must hold the write:orders scope to POST here (scope_required); first-party
+  login tokens are unaffected. GET fetches any order
   by id with no ownership check and, while doing so, POSTs the order to the
   fake dealership API at API_GATEWAY_URL/v1/payment (services/gateway-service)
   to attach card details to the response. PUT, owner-checked, changes an
@@ -52,7 +54,7 @@ from crapi.shop.serializers import (
     ProductQuantitySerializer,
 )
 from crapi.user.serializers import UserSerializer
-from utils.jwt import jwt_auth_required
+from utils.jwt import jwt_auth_required, scope_required
 from utils import messages
 from crapi.shop.models import Order, Product, AppliedCoupon, Coupon
 from crapi.user.models import UserDetails
@@ -183,6 +185,7 @@ class OrderControlView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
 
     @jwt_auth_required
+    @scope_required("write:orders")
     def post(self, request, order_id=None, user=None):
         """
         order view for adding a new order

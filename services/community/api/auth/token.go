@@ -59,6 +59,30 @@ func ExtractToken(r *http.Request) string {
 // ExtractTokenID Verify token either it's valid or not.
 // If token is valid we extract username from token Claims.
 // Then check that username in postgres database.
+// ExtractScope reads the "scope" claim from the request's token without
+// verifying its signature. The second return is false when the token carries no
+// scope claim, which is the case for first-party login tokens (only delegated
+// OAuth tokens are scope-limited).
+func ExtractScope(r *http.Request) (string, bool) {
+	tokenString := ExtractToken(r)
+	if tokenString == "" {
+		return "", false
+	}
+	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
+	if err != nil {
+		return "", false
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", false
+	}
+	scope, present := claims["scope"]
+	if !present {
+		return "", false
+	}
+	return fmt.Sprintf("%v", scope), true
+}
+
 func ExtractTokenID(r *http.Request, db *gorm.DB) (uint32, error) {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	tokenVerifyURL := fmt.Sprintf("http://%s/identity/api/auth/verify", os.Getenv("IDENTITY_SERVICE"))

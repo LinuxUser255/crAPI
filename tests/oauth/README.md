@@ -21,7 +21,10 @@ user token, refuses lookalike redirect URIs and unregistered scopes, and handles
 `state`; `/token` authenticates the client, binds the code to its `redirect_uri`, issues a JWT with
 `scope` / `client_id` / `aud`, rejects code replay and accepts HTTP Basic for refresh; `/userinfo`
 and `/consents` work; consent is remembered; `/revoke` needs client credentials; disconnecting an
-app (user side) removes it, kills its refresh token and brings the consent prompt back.
+app (user side) removes it, kills its refresh token and brings the consent prompt back. It also
+checks scope enforcement: a `profile read:vehicles` token is refused an order by Workshop (403) but
+not a coupon by Community (the intended gap), while a `write:orders` token and a first-party login
+token order fine.
 
 Python 3, standard library only.
 
