@@ -120,6 +120,34 @@ public class JwtProvider {
   }
 
   /**
+   * Builds an OAuth 2.0 access token for a client acting on a user's behalf. It is signed by the
+   * same RSA key as a login JWT, so the resource services accept it unchanged, and it carries the
+   * delegated {@code scope}, the {@code client_id} and the client as {@code aud} on top of the
+   * usual subject and role.
+   *
+   * @param user the resource owner
+   * @param clientId the client the token is issued to
+   * @param scope the space-separated granted scope
+   * @param expiryMillis lifetime of the token in milliseconds
+   * @return a signed JWT access token
+   */
+  public String generateOAuthToken(User user, String clientId, String scope, long expiryMillis) {
+    JwtBuilder builder =
+        Jwts.builder()
+            .subject(user.getEmail())
+            .issuedAt(new Date())
+            .expiration(new Date(System.currentTimeMillis() + expiryMillis))
+            .claim("role", user.getRole().getName())
+            .claim("scope", scope)
+            .claim("client_id", clientId)
+            .audience()
+            .add(clientId)
+            .and()
+            .signWith(this.keyPair.getPrivate());
+    return builder.compact();
+  }
+
+  /**
    * @param user
    * @return generated apikey token without expiry date
    */

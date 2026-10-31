@@ -36,9 +36,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * Spring Security configuration: decides which Identity routes are public and which need a token.
  *
  * <p>Builds the stateless security filter chain. {@code /identity/api/auth/**}, the health check,
- * the dashboard and {@code /identity/management/user/**} are open; {@code
- * /identity/management/admin/**} needs the ADMIN role; everything else just needs to be
- * authenticated. Authentication itself happens in {@link JwtAuthTokenFilter}, which this class
+ * the dashboard, {@code /identity/management/user/**} and the OAuth token/discovery endpoints are
+ * open; {@code /identity/management/admin/**} needs the ADMIN role; everything else just needs to
+ * be authenticated. Authentication itself happens in {@link JwtAuthTokenFilter}, which this class
  * inserts ahead of Spring's username/password filter, and failures are answered by {@link
  * JwtAuthEntryPoint}. Also exposes the BCrypt {@code PasswordEncoder} and the {@code
  * AuthenticationManager} that the login flow in {@code UserServiceImpl} uses.
@@ -92,6 +92,14 @@ public class WebSecurityConfig {
                     .requestMatchers("/identity/api/auth/**")
                     .permitAll()
                     .requestMatchers("/identity/health_check")
+                    .permitAll()
+                    // The token and revocation endpoints authenticate the client application with
+                    // its own credentials, not a user token; discovery metadata is public by
+                    // design. Everything else under /oauth (authorize, userinfo, consents)
+                    // falls through to anyRequest().authenticated() and needs a user token.
+                    .requestMatchers("/identity/api/oauth/token", "/identity/api/oauth/revoke")
+                    .permitAll()
+                    .requestMatchers("/identity/api/oauth/.well-known/**")
                     .permitAll()
                     .requestMatchers("/identity/api/v2/user/dashboard")
                     .permitAll()

@@ -15,6 +15,8 @@ services:
   crapi-identity:
     container_name: crapi-identity
     image: crapi/crapi-identity:${VERSION:-latest}
+    build:
+      context: ../../services/identity
     ports:
       - "${LISTEN_IP:-127.0.0.1}:8090:${IDENTITY_SERVER_PORT:-8090}"
     volumes:
@@ -41,6 +43,8 @@ services:
       - SMTP_STARTTLS=true
       - JWT_EXPIRATION=604800000
       - ENABLE_LOG4J=${ENABLE_LOG4J:-false}
+      - ENABLE_OAUTH=${ENABLE_OAUTH:-true}
+      - OAUTH_DEALER_REDIRECT_URI=${OAUTH_DEALER_REDIRECT_URI:-http://localhost:8900/oauth/callback}
       - API_GATEWAY_URL=https://api.mypremiumdealership.com
       - TLS_ENABLED=${TLS_ENABLED:-false}
       - TLS_KEYSTORE_TYPE=PKCS12

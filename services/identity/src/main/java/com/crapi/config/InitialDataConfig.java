@@ -15,6 +15,7 @@
 package com.crapi.config;
 
 import com.crapi.constant.TestUsers;
+import com.crapi.entity.OAuthClient;
 import com.crapi.entity.ProfileVideo;
 import com.crapi.entity.User;
 import com.crapi.entity.UserDetails;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Random;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -48,6 +50,9 @@ import org.springframework.util.CollectionUtils;
  * with VINs and GPS locations) when the user table is empty. These are the accounts the challenge
  * walkthroughs, the Postman collection and the chatbot's MCP server ({@code admin@example.com}) all
  * rely on, so a change here changes what every other service sees.
+ *
+ * <p>It also registers the OAuth client applications ({@link #addOAuthClients()}), which have no
+ * self-service registration path.
  */
 @Component
 @Slf4j
@@ -75,7 +80,18 @@ public class InitialDataConfig {
 
   @Autowired VehicleService vehicleService;
 
+  @Autowired OAuthClientRepository oAuthClientRepository;
+
   @Autowired PasswordEncoder encoder;
+
+  @Value("${app.oauth.dealerClientId:dealer-connect}")
+  private String dealerClientId;
+
+  @Value("${app.oauth.dealerClientSecret:DealerConnect!Secret123}")
+  private String dealerClientSecret;
+
+  @Value("${app.oauth.dealerRedirectUri:http://localhost:8900/oauth/callback}")
+  private String dealerRedirectUri;
 
   public void createModels() {
     VehicleCompany vehicleCompany = new VehicleCompany("Hyundai");
@@ -124,6 +140,32 @@ public class InitialDataConfig {
     generateVIN = new GenerateVIN();
     addVehicleModel();
     addUser();
+    addOAuthClients();
+  }
+
+  /**
+   * Registers the OAuth client applications the lab ships with. There is no self-service client
+   * registration, so this is the only way a client gets created.
+   *
+   * <p>DealerConnect is the third-party car-dealership portal that uses crAPI as its identity
+   * provider. Its secret is a lab credential: the DealerConnect service is configured with the same
+   * value, and only the BCrypt hash is stored here.
+   */
+  public void addOAuthClients() {
+    if (!CollectionUtils.isEmpty(oAuthClientRepository.findAll())) {
+      return;
+    }
+    OAuthClient dealerConnect =
+        new OAuthClient(
+            dealerClientId,
+            encoder.encode(dealerClientSecret),
+            "DealerConnect",
+            "confidential",
+            dealerRedirectUri,
+            "profile read:vehicles write:orders",
+            "images/dealer-connect.png");
+    oAuthClientRepository.save(dealerConnect);
+    log.debug("Registered OAuth client {}", dealerClientId);
   }
 
   public void addUser() {

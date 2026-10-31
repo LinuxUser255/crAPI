@@ -22,7 +22,7 @@ The file diverges from upstream:
 
 `deploy/docker/.env` holds only the non-secret toggles. Validate any compose edit with `docker compose config --quiet` from `deploy/docker/`. Plain `docker compose config` prints the resolved `llm.env.local` values, key included.
 
-`crapi-community` and `crapi-web` also have `build:` contexts (`../../services/community`, `../../services/web`) because the fork changes them (forum likes/dislikes, refreshed profile pictures, resizable chat window). `quickstart.sh` runs `docker compose pull --ignore-buildable` and then `docker compose build`, so the three services with a build context are always what the fork's source produces and never the upstream images. A plain `docker compose pull` would overwrite the local images with upstream's, so keep `--ignore-buildable` in the scripts.
+`crapi-community`, `crapi-web` and `crapi-identity` also have `build:` contexts (`../../services/community`, `../../services/web`, `../../services/identity`) because the fork changes them (forum likes/dislikes, refreshed profile pictures, resizable chat window, the OAuth authorization server). `quickstart.sh` runs `docker compose pull --ignore-buildable` and then `docker compose build`, so every service with a build context is always what the fork's source produces and never the upstream image. A plain `docker compose pull` would overwrite the local images with upstream's, so keep `--ignore-buildable` in the scripts. **Any service whose source this fork modifies must get a `build:` context**, or the change silently won't run.
 
 ## Running tests
 
@@ -51,6 +51,8 @@ IS_TESTING=True coverage run ./manage.py test --no-input crapi && coverage repor
 `services/workshop/.env` points at `127.0.0.1` for Postgres/Mongo, matching the ports `docker-database.yml` publishes. Workshop also needs system libs for Cairo (`libcairo2-dev pkg-config python3-dev` on Debian; `brew install cairo pkg-config` on macOS) plus `dev-requirements.txt` for the test runner.
 
 The web service has no test files — `npm run lint` (prettier check) is its only CI gate. CI (`.github/workflows/pr-build.yml`) also runs `golangci-lint` v2.2.1 against `services/community`, builds every image, brings the stack up, and runs `newman run ./postman_collections/crAPI.postman_collection.json -e ./postman_collections/crAPI.postman_environment.json` as the end-to-end check. Running that Newman collection locally is the fastest way to confirm a cross-service change didn't break the stack.
+
+`tests/oauth/run.sh` (add `--build` to rebuild identity first) is the end-to-end check for the OAuth authorization server: it **deletes all OAuth consents, tokens and codes** in the lab DB, then runs `smoke_test.py` against `http://localhost:8889` and exits non-zero on any failure. OAuth progress, errors and decisions are logged in `docs/oauth-devlog.md`; keep it current.
 
 ## Architecture notes that span files
 

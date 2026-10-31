@@ -4,6 +4,19 @@ Releases of this crAPI lab fork. Each `## [vX.Y.Z]` section becomes the notes of
 
 ## [Unreleased]
 
+### OAuth 2.0 (phase 1 of 6)
+
+- `crapi-identity` is now an OAuth 2.0 Authorization Server, under `/identity/api/oauth`:
+  `authorize` (GET describes a pending request for the consent screen, POST records the decision and
+  issues a code), `token` (`authorization_code` and `refresh_token` grants), `userinfo`, `revoke`,
+  `consents`, and RFC 8414 discovery metadata. Access tokens are RS256 JWTs signed by the existing
+  key and carry `scope`, `client_id` and `aud`, so the other services accept them unchanged.
+- The **DealerConnect** client is seeded at startup; there is no self-service registration. The
+  client app itself arrives in phase 3.
+- Controlled by `ENABLE_OAUTH` in `deploy/docker/.env` (default on). This phase implements the flow
+  the way the RFCs require — the teaching weaknesses get their own toggles in phase 5. See
+  `docs/oauth-plan.md`.
+
 ### Forum
 
 - Posts can be liked and disliked, from the forum list and the post page. Each is a toggle per user: reacting again removes it, and liking a disliked post (or the reverse) switches it. New Community endpoints: `POST /community/api/v2/community/posts/{id}/like` and `/dislike`; posts now carry `likes`, `dislikes` and `user_reaction`. The chatbot's OpenAPI spec knows the new routes.
