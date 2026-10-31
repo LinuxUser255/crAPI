@@ -54,7 +54,7 @@ if [ "$build" -eq 1 ]; then
     docker compose up -d --force-recreate --no-build crapi-identity crapi-web dealer-connect > /dev/null 2>&1
 fi
 
-health_services="crapi-identity crapi-web"
+health_services="crapi-identity crapi-web crapi-workshop crapi-community"
 if [ "$dealer" -eq 1 ]; then
     docker compose up -d --no-build dealer-connect > /dev/null 2>&1
     health_services="$health_services dealer-connect"

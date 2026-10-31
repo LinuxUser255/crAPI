@@ -52,6 +52,11 @@ def field(body, key):
     return body.get(key) if isinstance(body, dict) else None
 
 
+def randtag():
+    """A short random suffix so repeated runs don't collide on unique fields."""
+    return base64.urlsafe_b64encode(os.urandom(6)).decode().rstrip("=")
+
+
 def finish():
     print(f"\n==== {passed} passed, {failed} failed ====")
     sys.exit(0 if failed == 0 else 1)
@@ -303,6 +308,36 @@ def main():
         status == 400 and field(body, "error") == "invalid_grant",
         (status, body),
     )
+
+    print("\n== scope enforcement at the resource servers ==")
+
+    def mint_token(scope):
+        """A delegated access token for the given scope, via a full approve + exchange."""
+        request = dict(approve, scope=scope)
+        _, resp = call("POST", OAUTH + "/authorize", request, token=user_token, form=True)
+        issued = urllib.parse.parse_qs(
+            urllib.parse.urlparse(field(resp, "redirect_url") or "").query
+        ).get("code", [""])[0]
+        _, tok = call("POST", OAUTH + "/token", dict(exchange, code=issued), form=True)
+        return field(tok, "access_token")
+
+    full_token = mint_token("profile read:vehicles write:orders")
+    narrow_token = mint_token("profile read:vehicles")
+    order_body = {"product_id": 1, "quantity": 1}
+    coupon_body = {"coupon_code": "SCOPETEST" + randtag(), "amount": "10"}
+
+    # Workshop enforces write:orders on order creation (its default).
+    status, _ = call("POST", BASE + "/workshop/api/shop/orders", order_body, token=narrow_token)
+    check("Workshop refuses an order without write:orders (403)", status == 403, status)
+    status, _ = call("POST", BASE + "/workshop/api/shop/orders", order_body, token=full_token)
+    check("Workshop allows an order with write:orders", status == 200, status)
+    status, _ = call("POST", BASE + "/workshop/api/shop/orders", order_body, token=user_token)
+    check("Workshop still allows a first-party login token", status == 200, status)
+
+    # Community does NOT enforce scope by default: the same narrow token that
+    # Workshop refused can still create a coupon here. That gap is the lesson.
+    status, _ = call("POST", BASE + "/community/api/v2/coupon/new-coupon", coupon_body, token=narrow_token)
+    check("Community does not enforce scope on new-coupon (not 403)", status != 403, status)
 
     print("\n== disconnect the app (user side) ==")
     # A fresh grant, so there is a live refresh token for disconnect to kill.

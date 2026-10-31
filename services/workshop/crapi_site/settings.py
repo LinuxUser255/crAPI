@@ -76,6 +76,16 @@ if LOG_LEVEL == "DEBUG":
 
 ALLOWED_HOSTS = ["*"]
 
+# OAuth scope enforcement. When on, a delegated OAuth access token (one carrying
+# a "scope" claim) must hold the scope a view requires, or the request is refused.
+# First-party login tokens have no scope claim and are unaffected. Workshop
+# enforces by default; Community does not — the intended inconsistency.
+OAUTH_SCOPE_ENFORCED = os.environ.get("ENABLE_OAUTH_SCOPE_CHECK", "true").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+
 API_GATEWAY_URL = get_env_value("API_GATEWAY_URL")
 API_GATEWAY_USERNAME = "vendorcrapi"
 API_GATEWAY_PASSWORD = "Pa$$4Vendor_1"

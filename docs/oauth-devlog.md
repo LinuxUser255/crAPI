@@ -12,8 +12,8 @@ broke and why, decisions taken, and what's next. Newest entries first within eac
 | 1 | Authorization Server core in `crapi-identity` | ✅ Done, verified, committed to `develop` |
 | 2 | Consent screen, Connected-apps panel, login continuation (web) | ✅ Done, verified, committed to `develop` |
 | 3 | DealerConnect client app (`services/dealer-app`) + compose/proxy | ✅ Done, verified, committed to `develop` |
-| 4 | Scope handling in Workshop / Community | ⏳ Next |
-| 5 | Teaching weaknesses behind `ENABLE_OAUTH_*` toggles | ⏳ |
+| 4 | Scope handling in Workshop / Community | ✅ Done, verified, committed to `develop` |
+| 5 | Teaching weaknesses behind `ENABLE_OAUTH_*` toggles | ⏳ Next |
 | 6 | Challenges, solutions, Postman, chatbot OpenAPI spec | ⏳ |
 
 ---
@@ -40,6 +40,48 @@ Answers to the open questions in plan §10, plus decisions made while building.
 | D14 | DealerConnect keeps tokens **server-side**, browser holds only a session cookie | Adopted (phase 3) | In-memory session store. Keeps the secure baseline clean; phase 5 can add a leak as a toggle |
 | D15 | Two crAPI URLs: `CRAPI_PUBLIC_URL` (browser → `localhost:8889`) and `CRAPI_INTERNAL_URL` (server → `http://crapi-web`) | Adopted (phase 3) | The browser can't resolve `crapi-web`; the server shouldn't depend on the host port. The authorize redirect uses public, token/API calls use internal |
 | D16 | distroless image; container healthcheck is the binary's own `-healthcheck` mode | Adopted (phase 3) | distroless has no shell/curl for a normal healthcheck |
+| D17 | Scope is enforced only on **delegated** tokens (those with a `scope` claim); first-party login tokens pass through | Adopted (phase 4) | Keeps the web app and API keys working; realistic — a first-party session isn't scope-limited |
+| D18 | The inconsistency: **Workshop enforces `write:orders` on orders; Community does not** enforce on new-coupon | Adopted (phase 4) | One operator toggle `ENABLE_OAUTH_SCOPE_CHECK` with per-service compose defaults: Workshop `:-true`, Community `:-false`. Unset → inconsistent (the lab); `true` → secure everywhere; `false` → off everywhere |
+| D19 | `crapi-workshop` gains a `build:` context | Adopted (phase 4) | Its source changed; without it the upstream image runs and the scope check is absent (the D8 trap again) |
+
+---
+
+## Phase 4 — Scope enforcement at the resource servers
+
+**Date:** 2026-10-30 · **State:** verified, committed to `develop`
+
+### Built
+
+- **Workshop** (enforces, default on):
+  - `scope_required(scope)` decorator in `utils/jwt.py`, applied below `jwt_auth_required` on `OrderControlView.post`. Reads the token's `scope` claim; a token with no claim (first-party) passes; a delegated token missing `write:orders` gets 403; skipped entirely when `settings.OAUTH_SCOPE_ENFORCED` is off.
+  - `OAUTH_SCOPE_ENFORCED` in `settings.py` (default true), `INSUFFICIENT_SCOPE` message.
+- **Community** (capability present, default off — the gap):
+  - `auth.ExtractScope(r)` reads the `scope` claim unverified; `middlewares.SetMiddlewareScope(next, scope)` enforces it only when `ENABLE_OAUTH_SCOPE_CHECK` is true (default false). Wired onto `new-coupon`.
+- **Toggle**: one operator variable `ENABLE_OAUTH_SCOPE_CHECK`, with per-service compose defaults (Workshop `:-true`, Community `:-false`) encoding the inconsistency (D18); documented (commented) in `.env`.
+- **Compose**: `crapi-workshop` gains a `build:` context (D19).
+- **Tests**: `smoke_test.py` grows a scope-enforcement section (52 → 56): a narrow `profile read:vehicles` token is refused an order by Workshop (403) but not a coupon by Community; a `write:orders` token and a first-party login token both order fine.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Community `go build`/`vet`/`test` (golang:1.21 image) | Clean, tests pass |
+| Workshop `py_compile` | Clean |
+| `docker compose config`, `pull --ignore-buildable` skips workshop | OK |
+| Full regression (`run.sh --ui --dealer`) | _running_ |
+
+### Errors & fixes
+
+| # | Symptom | Cause | Fix |
+|---|---|---|---|
+| E18 | (Caught before build) Workshop scope check wouldn't run | `crapi-workshop` was pulled, no `build:` context | Added one (D19) |
+| E19 | Smoke test: Workshop scope checks returned **502** | Test ran before `crapi-workshop` finished starting after the recreate; `run.sh` only waited on identity and web | `run.sh` now also waits for `crapi-workshop` and `crapi-community` to be healthy |
+
+### Notes
+
+- Only the `scope` claim distinguishes a delegated token from a first-party one; `generateOAuthToken` adds it, `generateJwtToken`/`generateApiKey` do not. That is what makes D17 clean.
+- The scope gating `write:orders` on Community's coupon creation is a small semantic stretch (coupons aren't orders), chosen so the same narrow token demonstrates the Workshop/Community inconsistency without adding a new scope to the seeded set.
+- DealerConnect requests `write:orders`, so its ordering still works — no regression.
 
 ---
 
@@ -188,9 +230,13 @@ What the smoke test covers: discovery is public; `/authorize` refuses requests w
 ## How to verify
 
 ```bash
-# Unit + full identity suite (local JDK 19 can't run spotless; use the build image)
+# Identity (unit + full suite; local JDK 19 can't run spotless, use the build image)
 docker run --rm -v "$PWD/services/identity":/app -w /app gradle:8.1-jdk17-focal \
   gradle spotlessCheck test --no-daemon
+
+# Community (Go)
+docker run --rm -v "$PWD/services/community":/app -w /app -e GOFLAGS=-mod=vendor golang:1.21-alpine \
+  sh -c 'go build ./... && go vet ./... && go test ./...'
 
 # DealerConnect (Go)
 docker run --rm -v "$PWD/services/dealer-app":/app -w /app golang:1.21-bookworm \
@@ -200,11 +246,16 @@ docker run --rm -v "$PWD/services/dealer-app":/app -w /app golang:1.21-bookworm 
 cd services/web && npm run lint && npm run build
 
 # End-to-end against the running lab (resets OAuth grants before each test)
-tests/oauth/run.sh                       # API smoke test, 52 checks
+tests/oauth/run.sh                       # API smoke test, 56 checks (incl. scope enforcement)
 tests/oauth/run.sh --ui                  # + crAPI web UI check, 30 checks (Playwright)
 tests/oauth/run.sh --dealer              # + DealerConnect end-to-end, 17 checks (Playwright)
-tests/oauth/run.sh --build --ui --dealer # rebuild identity, web and dealer-connect first
+tests/oauth/run.sh --build --ui --dealer # rebuild the modified services first
 ```
+
+Scope enforcement specifically: a delegated token with only `profile read:vehicles` is refused an
+order by Workshop (403) but is **not** refused a coupon by Community; a `write:orders` token and a
+first-party login token both order fine. Setting `ENABLE_OAUTH_SCOPE_CHECK=true` makes Community
+enforce too (verified: new-coupon with the narrow token then returns 403).
 
 See [tests/oauth/README.md](../tests/oauth/README.md). The scripts are linted in CI (shellcheck,
 bash 3.2 syntax, `py_compile`); the tests themselves need the live stack, so they are not CI jobs.
@@ -215,21 +266,33 @@ bash 3.2 syntax, `py_compile`); the tests themselves need the live stack, so the
 
 | # | Item | Phase |
 |---|---|---|
-| ~~T1~~ | ~~Move the OAuth smoke test + reset script into the repo~~ — done: `tests/oauth/` | — |
+| ~~T1~~ | ~~Move the OAuth smoke test into the repo~~ — done: `tests/oauth/` | — |
 | ~~T2~~ | ~~Commit phase 1~~ — done | — |
-| ~~T3~~ | ~~Root `/.well-known/oauth-authorization-server` in both nginx templates~~ — done (phase 3) | — |
-| ~~T4~~ | ~~Confirm port 8900 and HTTP vs HTTPS for DealerConnect~~ — 8900, HTTP (D13) | — |
+| ~~T3~~ | ~~Root discovery in both nginx templates~~ — done (phase 3) | — |
+| ~~T4~~ | ~~Confirm DealerConnect port / scheme~~ — 8900, HTTP (D13) | — |
 | T5 | Revisit D3 (`ENABLE_OAUTH` default on) before the weaknesses land | 5 |
 | T6 | Refresh-token rotation (phase 1 reuses the same refresh token) | decide in 5 |
-| ~~T7~~ | ~~DealerConnect logo~~ — moot: DealerConnect has its own UI; the crAPI consent page still shows a fallback icon for the missing `images/dealer-connect.png` | 5? |
+| T7 | crAPI consent page shows a fallback icon for the missing `images/dealer-connect.png` | 5? |
 | ~~T8~~ | ~~Commit phase 2~~ — done | — |
-| ~~T9~~ | ~~Commit phase 3 to `develop` and mirror~~ — done 2026-10-30 | — |
-| T10 | Scope is still not enforced by Workshop/Community — a `read:vehicles`-only DealerConnect token can place orders | 4 |
+| ~~T9~~ | ~~Commit phase 3~~ — done | — |
+| ~~T10~~ | ~~Scope not enforced anywhere~~ — done (phase 4): Workshop enforces, Community is the gap | — |
+| ~~T11~~ | ~~Commit phase 4 to `develop` and mirror~~ — done 2026-10-30 | — |
 
 ---
 
-## Next: Phase 4 plan
+## Next: Phase 5 plan
 
-- **Resource-server scope handling.** Read the `scope` claim in Workshop (`utils/jwt.py`) and Community (`api/auth/token.go`) and enforce it on write endpoints — **inconsistently by design** (one service enforces, the other effectively ignores it), which is the intended teaching gap (T10). Toggle-gated so a "secure mode" demo enforces everywhere.
-- **Concretely:** `write:orders` should be required to `POST /workshop/api/shop/orders`; a DealerConnect token granted only `profile read:vehicles` should then be refused there. The `dealer_check.py` "place an order" step currently relies on the lack of enforcement, so it will need the broader scope (already granted) — and a new negative check with a narrowed token.
-- Decide where the inconsistency lives (proposal: Workshop enforces, Community does not) and record it as a decision.
+The teaching weaknesses, each behind an `ENABLE_OAUTH_*` toggle (default = the safe behaviour built
+in phases 1–4, so nothing regresses until a toggle is flipped). Candidates, kept at the level of
+weakness class + OWASP category (step-by-step goes in `challenges.md`):
+
+- Loose `redirect_uri` validation (API8) — a toggle that relaxes the exact-match rule in `OAuthServiceImpl.isRegisteredRedirectUri`.
+- Missing CSRF/PKCE protection on the flow (API2).
+- The scope gap is already live as a default (phase 4, D18); `ENABLE_OAUTH_SCOPE_CHECK=true` is its "secure mode".
+- Over-trust of unverified token claims (API2) — reuses the existing verify-vs-decode indirection.
+- Weak client authentication / secret handling (API2/API8).
+- Token/code leakage via the client app (API2) — DealerConnect grows an optional leak behind a toggle.
+- Consent that doesn't bind the grant (API1).
+
+Also revisit T5/T6 here (default-on, refresh rotation) and add challenge docs/Postman/chatbot-spec
+entries in phase 6.

@@ -40,6 +40,7 @@ COUPON_ALREADY_APPLIED = (
 COUPON_APPLIED = "Coupon successfully applied!"
 COUPON_NOT_FOUND = "Coupon not found"
 RESTRICTED = "You are not allowed to access this resource!"
+INSUFFICIENT_SCOPE = "The access token does not have the required scope!"
 INVALID_STATUS = (
     "The value of 'status' has to be 'delivered','return pending' or 'returned'"
 )

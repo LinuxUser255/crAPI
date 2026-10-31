@@ -18,17 +18,55 @@
 // SetMiddlewareAuthentication is the gate on every API route: it pulls the
 // Bearer token off the request and asks auth.ExtractTokenID to validate it
 // (which defers to the Identity service), rejecting with 401 otherwise.
-// AccessControlMiddleware answers CORS preflight requests.
+// SetMiddlewareScope can require an OAuth scope, but Community leaves it off by
+// default (ENABLE_OAUTH_SCOPE_CHECK), unlike Workshop — the intended
+// inconsistency of the OAuth lab. AccessControlMiddleware answers CORS preflight
+// requests.
 package middlewares
 
 import (
 	"errors"
 	"net/http"
+	"os"
+	"strings"
 
 	"crapi.proj/goservice/api/auth"
 	"crapi.proj/goservice/api/responses"
+	"crapi.proj/goservice/api/utils"
 	"github.com/jinzhu/gorm"
 )
+
+// scopeEnforcementEnabled reports whether this service enforces OAuth scopes.
+// It defaults to false, so Community does not enforce unless ENABLE_OAUTH_SCOPE_CHECK
+// is set true; Workshop enforces by default. Setting it true in both is "secure mode".
+func scopeEnforcementEnabled() bool {
+	return utils.IsTrue(os.Getenv("ENABLE_OAUTH_SCOPE_CHECK"))
+}
+
+// SetMiddlewareScope requires a delegated OAuth token to hold requiredScope.
+// A first-party token (no scope claim) passes through. When enforcement is off
+// (the default), nothing is checked at all — the deliberate gap.
+func SetMiddlewareScope(next http.HandlerFunc, requiredScope string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if scopeEnforcementEnabled() {
+			scope, isDelegated := auth.ExtractScope(r)
+			if isDelegated && !scopeContains(scope, requiredScope) {
+				responses.ERROR(w, http.StatusForbidden, errors.New("insufficient_scope"))
+				return
+			}
+		}
+		next(w, r)
+	}
+}
+
+func scopeContains(scope, required string) bool {
+	for _, s := range strings.Fields(scope) {
+		if s == required {
+			return true
+		}
+	}
+	return false
+}
 
 //SetMiddlewareJSON set content type and options
 func SetMiddlewareJSON(next http.HandlerFunc) http.HandlerFunc {
