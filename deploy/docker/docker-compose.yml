@@ -44,6 +44,7 @@ services:
       - JWT_EXPIRATION=604800000
       - ENABLE_LOG4J=${ENABLE_LOG4J:-false}
       - ENABLE_OAUTH=${ENABLE_OAUTH:-true}
+      - OAUTH_MODE=${OAUTH_MODE:-secure}
       - OAUTH_DEALER_REDIRECT_URI=${OAUTH_DEALER_REDIRECT_URI:-http://localhost:8900/oauth/callback}
       - API_GATEWAY_URL=https://api.mypremiumdealership.com
       - TLS_ENABLED=${TLS_ENABLED:-false}
@@ -80,8 +81,8 @@ services:
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - IDENTITY_SERVICE=crapi-identity:${IDENTITY_SERVER_PORT:-8080}
-      # Community leaves OAuth scope enforcement off by default (the gap vs Workshop).
-      - ENABLE_OAUTH_SCOPE_CHECK=${ENABLE_OAUTH_SCOPE_CHECK:-false}
+      # Shared OAuth mode flag: secure enforces scope, vulnerable does not.
+      - OAUTH_MODE=${OAUTH_MODE:-secure}
       - DB_NAME=crapi
       - DB_USER=admin
       - DB_PASSWORD=crapisecretpassword
@@ -124,8 +125,8 @@ services:
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - IDENTITY_SERVICE=crapi-identity:${IDENTITY_SERVER_PORT:-8080}
-      # Workshop enforces write:orders on orders for delegated OAuth tokens.
-      - ENABLE_OAUTH_SCOPE_CHECK=${ENABLE_OAUTH_SCOPE_CHECK:-true}
+      # Shared OAuth mode flag: secure enforces write:orders on orders, vulnerable does not.
+      - OAUTH_MODE=${OAUTH_MODE:-secure}
       - DB_NAME=crapi
       - DB_USER=admin
       - DB_PASSWORD=crapisecretpassword

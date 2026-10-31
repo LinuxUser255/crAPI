@@ -2280,6 +2280,7 @@
         ],
         "responses": {
           "200": {
+            "description": "The post with its updated like and dislike counts and the current user's reaction",
             "content": {
               "application/json": {
                 "schema": {
@@ -2436,6 +2437,7 @@
         ],
         "responses": {
           "200": {
+            "description": "The post with its updated like and dislike counts and the current user's reaction",
             "content": {
               "application/json": {
                 "schema": {

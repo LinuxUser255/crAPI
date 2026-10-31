@@ -27,8 +27,8 @@ Nothing here validates a signature, so Identity's JWT weaknesses
 
 ``scope_required`` additionally enforces an OAuth scope on a view. A delegated
 OAuth access token carries a ``scope`` claim; a first-party login token does
-not. The check only constrains delegated tokens, and only when
-``settings.OAUTH_SCOPE_ENFORCED`` is on (Workshop's default).
+not. The check only constrains delegated tokens, and only in secure mode
+(``settings.OAUTH_SCOPE_ENFORCED``, from the shared ``OAUTH_MODE`` flag).
 """
 import requests
 import jwt
