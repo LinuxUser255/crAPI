@@ -4,14 +4,15 @@ End-to-end checks of crAPI's OAuth 2.0 authorization server and its web UI (see
 `docs/oauth-plan.md` and `docs/oauth-devlog.md`), run against the live lab through crapi-web.
 
 ```bash
-tests/oauth/run.sh                  # API smoke test (smoke_test.py)
-tests/oauth/run.sh --ui             # + headless-browser UI check (ui_check.py)
-tests/oauth/run.sh --build --ui     # rebuild crapi-identity and crapi-web from source first
+tests/oauth/run.sh                       # API smoke test (smoke_test.py)
+tests/oauth/run.sh --ui                  # + crAPI web UI check (ui_check.py)
+tests/oauth/run.sh --dealer              # + DealerConnect end-to-end (dealer_check.py)
+tests/oauth/run.sh --build --ui --dealer # rebuild identity, web and dealer-connect first
 ```
 
-`run.sh` waits for `crapi-identity` and `crapi-web` to be healthy and, **before each test, deletes
-all OAuth consents, tokens and authorization codes** in the lab database (registered clients are
-kept). It exits 0 only when every check passes.
+`run.sh` waits for the services to be healthy and, **before each test, deletes all OAuth consents,
+tokens and authorization codes** in the lab database (registered clients are kept). It exits 0 only
+when every check passes.
 
 ## smoke_test.py — the API
 
@@ -33,7 +34,17 @@ Connected Apps panel with Disconnect, and that a plain login still lands on the 
 DealerConnect is stubbed, so it doesn't need to be running. Screenshots go to
 `$UI_SCREENSHOTS` (default `<tmp>/crapi-oauth-ui`).
 
-Needs Playwright, which is not a project dependency:
+## dealer_check.py — DealerConnect end-to-end
+
+Drives a real browser through the whole third-party flow against the running `dealer-connect`
+container: the landing page, "Log in with crAPI", approving on crAPI's consent page, landing back
+on DealerConnect's dashboard with the user's vehicles and the parts shop, placing an order, logging
+out, logging in again without a prompt (consent remembered), and DealerConnect rejecting a callback
+with a forged `state`. Needs the full stack with `dealer-connect` up (`--dealer` starts it).
+
+## Playwright
+
+`ui_check.py` and `dealer_check.py` need Playwright, which is not a project dependency:
 
 ```bash
 pip install playwright==1.49.1 && python -m playwright install chromium

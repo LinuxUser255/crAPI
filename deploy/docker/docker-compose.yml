@@ -343,6 +343,39 @@ services:
           cpus: '0.1'
           memory: 50M
 
+  # Third-party OAuth client for the OAuth lab. Built from local source, and
+  # published so the browser can reach it. CRAPI_PUBLIC_URL is the crapi-web
+  # address the browser uses; the server talks to crapi-web internally.
+  dealer-connect:
+    container_name: dealer-connect
+    image: crapi/dealer-app:${VERSION:-latest}
+    build:
+      context: ../../services/dealer-app
+    ports:
+      - "${LISTEN_IP:-127.0.0.1}:8900:8900"
+    environment:
+      - LISTEN_ADDR=:8900
+      - CRAPI_PUBLIC_URL=${OAUTH_CRAPI_PUBLIC_URL:-http://localhost:8889}
+      - CRAPI_INTERNAL_URL=http://crapi-web
+      - OAUTH_CLIENT_ID=${OAUTH_DEALER_CLIENT_ID:-dealer-connect}
+      - OAUTH_CLIENT_SECRET=${OAUTH_DEALER_CLIENT_SECRET:-DealerConnect!Secret123}
+      - OAUTH_REDIRECT_URI=${OAUTH_DEALER_REDIRECT_URI:-http://localhost:8900/oauth/callback}
+      - OAUTH_SCOPE=profile read:vehicles write:orders
+    depends_on:
+      crapi-web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/server", "-healthcheck"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 64M
+
 volumes:
   mongodb-data:
   postgresql-data:

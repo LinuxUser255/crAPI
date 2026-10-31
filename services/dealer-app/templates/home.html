@@ -1,0 +1,15 @@
+{{define "home"}}{{template "top" .}}
+<div class="card">
+  <h1>Welcome to DealerConnect</h1>
+  <p class="muted">
+    Book servicing and order parts for your vehicles. Sign in with your crAPI
+    account to get started — DealerConnect never sees your password.
+  </p>
+  {{if .Session.LoggedIn}}
+    <p>You are signed in as <strong>{{.Session.Name}}</strong>.</p>
+    <a class="btn" href="/dashboard">Go to your dashboard</a>
+  {{else}}
+    <a class="btn" href="/login">Log in with crAPI</a>
+  {{end}}
+</div>
+{{template "bottom" .}}{{end}}
