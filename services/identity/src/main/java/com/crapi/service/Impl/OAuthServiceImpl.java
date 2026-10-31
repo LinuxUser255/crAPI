@@ -317,11 +317,37 @@ public class OAuthServiceImpl implements OAuthService {
   }
 
   @Override
+  @Transactional
+  public boolean disconnectClient(User user, String clientId) {
+    OAuthConsent consent = oAuthConsentRepository.findByUserAndClientId(user, clientId);
+    if (consent == null) {
+      return false;
+    }
+    oAuthConsentRepository.delete(consent);
+
+    // Without this the app would keep working on tokens it already holds.
+    for (OAuthAccessToken token :
+        oAuthAccessTokenRepository.findByUserAndClientId(user, clientId)) {
+      token.setRevoked(true);
+      oAuthAccessTokenRepository.save(token);
+    }
+    for (OAuthAuthorizationCode code :
+        oAuthAuthorizationCodeRepository.findByUserAndClientIdAndUsed(user, clientId, false)) {
+      code.setUsed(true);
+      oAuthAuthorizationCodeRepository.save(code);
+    }
+    log.debug("User {} disconnected client {}", user.getEmail(), clientId);
+    return true;
+  }
+
+  @Override
   public OAuthMetadata buildMetadata(String baseUrl) {
     String oauthBase = baseUrl + "/identity/api/oauth";
     OAuthMetadata metadata = new OAuthMetadata();
     metadata.setIssuer(baseUrl);
-    metadata.setAuthorizationEndpoint(oauthBase + "/authorize");
+    // Where the client sends the user's browser: the web app's consent page, which drives the
+    // /identity/api/oauth/authorize API with the user's crAPI token.
+    metadata.setAuthorizationEndpoint(baseUrl + "/oauth-authorize");
     metadata.setTokenEndpoint(oauthBase + "/token");
     metadata.setUserinfoEndpoint(oauthBase + "/userinfo");
     metadata.setRevocationEndpoint(oauthBase + "/revoke");

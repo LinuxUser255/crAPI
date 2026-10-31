@@ -41,7 +41,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -292,6 +294,29 @@ public class OAuthController {
       result.add(entry);
     }
     return ResponseEntity.status(HttpStatus.OK).body(result);
+  }
+
+  /**
+   * Disconnects an app from the calling user's account ("Connected apps" panel). Unlike {@link
+   * #revoke}, which the client calls with its own credentials, this is the user's side: it removes
+   * the consent and revokes everything the client holds for this user.
+   */
+  @DeleteMapping("/consents/{clientId}")
+  public ResponseEntity<?> disconnect(
+      @PathVariable("clientId") String clientId, HttpServletRequest request) {
+    if (!oAuthService.isEnabled()) {
+      return oauthDisabled();
+    }
+    User user = currentUser(request);
+    if (user == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(new OAuthError("invalid_token", "A valid access token is required"));
+    }
+    if (!oAuthService.disconnectClient(user, clientId)) {
+      return ResponseEntity.status(HttpStatus.NOT_FOUND)
+          .body(new OAuthError("invalid_request", "This app is not connected to your account"));
+    }
+    return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
   }
 
   /** Authorization server metadata (RFC 8414). */

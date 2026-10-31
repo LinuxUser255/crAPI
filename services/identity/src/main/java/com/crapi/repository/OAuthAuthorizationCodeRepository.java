@@ -15,6 +15,8 @@
 package com.crapi.repository;
 
 import com.crapi.entity.OAuthAuthorizationCode;
+import com.crapi.entity.User;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -22,4 +24,7 @@ import org.springframework.stereotype.Repository;
 public interface OAuthAuthorizationCodeRepository
     extends JpaRepository<OAuthAuthorizationCode, Long> {
   OAuthAuthorizationCode findByCode(String code);
+
+  List<OAuthAuthorizationCode> findByUserAndClientIdAndUsed(
+      User user, String clientId, boolean used);
 }

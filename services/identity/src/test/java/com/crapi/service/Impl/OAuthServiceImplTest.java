@@ -233,6 +233,35 @@ public class OAuthServiceImplTest {
   }
 
   @Test
+  public void disconnectRemovesConsentAndRevokesTokensAndCodes() {
+    User user = getDummyUser();
+    OAuthConsent consent = new OAuthConsent();
+    consent.setUser(user);
+    consent.setClientId(CLIENT_ID);
+    consent.setScope("profile");
+    OAuthAccessToken token = getDummyAccessToken();
+    OAuthAuthorizationCode code = getDummyCode();
+    Mockito.when(oAuthConsentRepository.findByUserAndClientId(user, CLIENT_ID)).thenReturn(consent);
+    Mockito.when(oAuthAccessTokenRepository.findByUserAndClientId(user, CLIENT_ID))
+        .thenReturn(java.util.List.of(token));
+    Mockito.when(
+            oAuthAuthorizationCodeRepository.findByUserAndClientIdAndUsed(user, CLIENT_ID, false))
+        .thenReturn(java.util.List.of(code));
+
+    Assertions.assertTrue(oAuthService.disconnectClient(user, CLIENT_ID));
+    Mockito.verify(oAuthConsentRepository).delete(consent);
+    Assertions.assertTrue(token.isRevoked());
+    Assertions.assertTrue(code.isUsed());
+  }
+
+  @Test
+  public void disconnectReportsAnAppThatWasNotConnected() {
+    User user = getDummyUser();
+    Mockito.when(oAuthConsentRepository.findByUserAndClientId(user, CLIENT_ID)).thenReturn(null);
+    Assertions.assertFalse(oAuthService.disconnectClient(user, CLIENT_ID));
+  }
+
+  @Test
   public void hasConsentIsFalseWhenScopeWasNotGranted() {
     User user = getDummyUser();
     OAuthConsent consent = new OAuthConsent();

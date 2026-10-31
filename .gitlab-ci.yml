@@ -65,7 +65,7 @@ chatbot-python:
   image: python:3.11-slim
   script:
     - python -m compileall -q services/chatbot/src
-    - python -m py_compile tests/oauth/smoke_test.py
+    - python -m py_compile tests/oauth/smoke_test.py tests/oauth/ui_check.py tests/oauth/dealer_check.py
 
 #------------------------------------------------------------------------------
 # build

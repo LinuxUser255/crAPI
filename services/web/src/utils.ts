@@ -24,3 +24,17 @@ export const formatDateFromIso = (isoDate: string): string => {
   const date = new Date(isoDate);
   return date.toDateString();
 };
+
+/**
+ * Where to go after logging in: the page that sent the user to /login (recorded in router state
+ * by AfterLogin in layout.tsx), or the dashboard. Router state is set by the app itself, never by
+ * the URL, so this can't be used to redirect off-site.
+ */
+export const pathAfterLogin = (state: unknown): string => {
+  const from = (state as { from?: { pathname?: string; search?: string } })
+    ?.from;
+  if (from && from.pathname && from.pathname !== "/login") {
+    return `${from.pathname}${from.search || ""}`;
+  }
+  return "/dashboard";
+};

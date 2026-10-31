@@ -91,6 +91,10 @@ server {
     proxy_pass ${HTTP_PROTOCOL}://${IDENTITY_SERVICE}/identity/api/auth/jwks.json;
   }
 
+  location /.well-known/oauth-authorization-server {
+    proxy_pass ${HTTP_PROTOCOL}://${IDENTITY_SERVICE}/identity/api/oauth/.well-known/oauth-authorization-server;
+  }
+
   location /mailhog/ {
     rewrite_by_lua_block {
       ngx.req.read_body()  -- explicitly read the req body
@@ -210,6 +214,10 @@ server {
 
   location /.well-known/jwks.json {
     proxy_pass ${HTTP_PROTOCOL}://${IDENTITY_SERVICE}/identity/api/auth/jwks.json;
+  }
+
+  location /.well-known/oauth-authorization-server {
+    proxy_pass ${HTTP_PROTOCOL}://${IDENTITY_SERVICE}/identity/api/oauth/.well-known/oauth-authorization-server;
   }
 
   location /mailhog/ {

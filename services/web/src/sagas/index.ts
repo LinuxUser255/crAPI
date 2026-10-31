@@ -20,6 +20,7 @@ import { profileActionWatcher } from "./profileSaga";
 import { communityActionWatcher } from "./communitySaga";
 import { vehicleActionWatcher } from "./vehicleSaga";
 import { mechanicActionWatcher } from "./mechanicSaga";
+import { oauthActionWatcher } from "./oauthSaga";
 
 /**
  * saga to yield all others
@@ -32,5 +33,6 @@ export default function* rootSaga(): Generator<Effect, void, unknown> {
     communityActionWatcher(),
     vehicleActionWatcher(),
     mechanicActionWatcher(),
+    oauthActionWatcher(),
   ]);
 }

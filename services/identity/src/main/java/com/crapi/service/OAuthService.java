@@ -66,6 +66,14 @@ public interface OAuthService {
   /** The clients a user has authorized (for the "Connected apps" panel). */
   List<OAuthConsent> getUserConsents(User user);
 
+  /**
+   * Withdraws the user's authorization of a client: removes the consent and revokes every token and
+   * unredeemed code the client holds for that user.
+   *
+   * @return false if the user had not authorized the client
+   */
+  boolean disconnectClient(User user, String clientId);
+
   /** Builds the authorization-server metadata document for the given external base URL. */
   OAuthMetadata buildMetadata(String baseUrl);
 }

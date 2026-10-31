@@ -4,6 +4,29 @@ Releases of this crAPI lab fork. Each `## [vX.Y.Z]` section becomes the notes of
 
 ## [Unreleased]
 
+### OAuth 2.0 (phase 3 of 6)
+
+- **DealerConnect** (`services/dealer-app`): a standalone third-party car-dealership portal that
+  signs in with crAPI over OAuth. "Log in with crAPI" runs the authorization-code flow, then the app
+  shows the user's vehicles and the parts shop and can place an order — all with a delegated token,
+  never the user's password. Published at `http://localhost:8900`.
+- crAPI's root `/.well-known/oauth-authorization-server` now resolves (proxied to identity).
+- `tests/oauth/run.sh --dealer` adds a real-browser end-to-end check of the whole flow.
+
+### OAuth 2.0 (phase 2 of 6)
+
+- **Consent page** at `/oauth-authorize`: shows which app is asking, who is signed in, what each
+  requested scope allows and where the user will be sent, with Allow and Deny. Skipped when the
+  user already authorized those scopes. A request with an unknown app or an unregistered
+  `redirect_uri` shows an error and is never redirected.
+- **Connected Apps** on the profile page lists authorized apps and their scopes, with Disconnect.
+  New endpoint `DELETE /identity/api/oauth/consents/{clientId}` removes the consent and revokes the
+  app's tokens.
+- **Login continuation**: a protected page opened while logged out, such as an OAuth link, is
+  reopened after login instead of the dashboard.
+- Discovery's `authorization_endpoint` now points at the consent page.
+- `tests/oauth/run.sh --ui` adds a headless-browser check of these pages (needs Playwright).
+
 ### OAuth 2.0 (phase 1 of 6)
 
 - `crapi-identity` is now an OAuth 2.0 Authorization Server, under `/identity/api/oauth`:

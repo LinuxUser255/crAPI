@@ -1,0 +1,55 @@
+{{define "dashboard"}}{{template "top" .}}
+<div class="card">
+  <h1>Hello, {{.Session.Name}}</h1>
+  <p class="muted">{{.Session.Email}}</p>
+  <p>DealerConnect was granted:</p>
+  <div class="scopes">
+    {{range .ScopeList}}<span>{{.}}</span>{{end}}
+  </div>
+</div>
+
+{{if eq .Notice "ordered"}}<div class="notice ok">Your order was placed through crAPI.</div>{{end}}
+{{if eq .Notice "order-failed"}}<div class="notice warn">That order could not be placed.</div>{{end}}
+{{if eq .Notice "bad-request"}}<div class="notice warn">That request was not valid.</div>{{end}}
+
+<div class="card">
+  <h2>Your vehicles</h2>
+  {{if .VehiclesError}}
+    <p class="muted">Your vehicles could not be loaded from crAPI.</p>
+  {{else if .Vehicles}}
+    <div class="grid">
+      {{range .Vehicles}}
+        <div class="tile">
+          <div class="name">{{.Model.VehicleOwner.Name}} {{.Model.Model}}</div>
+          <div class="meta">VIN {{.VIN}}</div>
+          <div class="meta">{{.Year}} · {{.Model.FuelType}} · {{.Status}}</div>
+          <div class="meta">Location {{.Location.Latitude}}, {{.Location.Longitude}}</div>
+        </div>
+      {{end}}
+    </div>
+  {{else}}
+    <p class="muted">No vehicles are on your crAPI account.</p>
+  {{end}}
+</div>
+
+<div class="card">
+  <h2>Parts shop</h2>
+  {{if .ShopError}}
+    <p class="muted">The parts shop could not be loaded from crAPI.</p>
+  {{else}}
+    <p class="muted">Account credit: <span class="credit">${{printf "%.2f" .Credit}}</span></p>
+    <div class="grid">
+      {{range .Products}}
+        <div class="tile">
+          <div class="name">{{.Name}}</div>
+          <div class="meta">${{.Price}}</div>
+          <form method="post" action="/order" style="margin-top:10px">
+            <input type="hidden" name="product_id" value="{{.ID}}" />
+            <button class="btn btn-small" type="submit">Order</button>
+          </form>
+        </div>
+      {{end}}
+    </div>
+  {{end}}
+</div>
+{{template "bottom" .}}{{end}}

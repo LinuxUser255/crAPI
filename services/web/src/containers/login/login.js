@@ -19,10 +19,12 @@ import PropTypes from "prop-types";
 import Login from "../../components/login/login";
 import { logInUserAction } from "../../actions/userActions";
 import responseTypes from "../../constants/responseTypes";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { pathAfterLogin } from "../../utils";
 
 const LoginContainer = (props) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { logInUser } = props;
 
   const [hasErrored, setHasErrored] = useState(false);
@@ -30,7 +32,7 @@ const LoginContainer = (props) => {
 
   const callback = (res, data) => {
     if (res === responseTypes.SUCCESS) {
-      navigate("/dashboard");
+      navigate(pathAfterLogin(location.state));
     }
     if (res === responseTypes.REDIRECT) {
       navigate(data);

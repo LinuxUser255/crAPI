@@ -1,0 +1,24 @@
+/* Connected apps panel on the profile page (card styling comes from .video-section-card) */
+.connected-apps-card {
+  cursor: default;
+}
+
+.connected-apps-header {
+  margin-bottom: var(--spacing-md);
+}
+
+.connected-app-avatar {
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+}
+
+.connected-app-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+}
+
+.connected-app-date {
+  font-size: 12px;
+  color: #9ca3af;
+}

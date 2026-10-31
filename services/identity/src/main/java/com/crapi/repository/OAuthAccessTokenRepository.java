@@ -15,6 +15,8 @@
 package com.crapi.repository;
 
 import com.crapi.entity.OAuthAccessToken;
+import com.crapi.entity.User;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -23,4 +25,6 @@ public interface OAuthAccessTokenRepository extends JpaRepository<OAuthAccessTok
   OAuthAccessToken findByRefreshToken(String refreshToken);
 
   OAuthAccessToken findByAccessToken(String accessToken);
+
+  List<OAuthAccessToken> findByUserAndClientId(User user, String clientId);
 }
