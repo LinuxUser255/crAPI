@@ -66,6 +66,10 @@ chatbot-python:
   script:
     - python -m compileall -q services/chatbot/src
     - python -m py_compile tests/oauth/smoke_test.py tests/oauth/ui_check.py tests/oauth/dealer_check.py tests/oauth/weaknesses.py
+    # The chatbot's MCP server parses crapi-openapi-spec.json with FastMCP, which
+    # rejects an OpenAPI response object that has neither `description` nor `$ref`
+    # (a missing description once crashed the whole chatbot). Catch it here.
+    - python services/chatbot/validate_openapi_spec.py
 
 #------------------------------------------------------------------------------
 # build
