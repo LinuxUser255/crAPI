@@ -108,6 +108,8 @@ npm run lint:fix                 # auto-fix formatting
 | `LISTEN_IP` | `127.0.0.1` | Network interface binding |
 | `ENABLE_SHELL_INJECTION` | `false` | Enables shell injection vulnerability |
 | `ENABLE_LOG4J` | `false` | Enables Log4Shell vulnerability |
+| `ENABLE_OAUTH` | `true` | Enables the OAuth 2.0 authorization server in crapi-identity |
+| `OAUTH_MODE` | `vulnerable` | One flag for the OAuth lab: `vulnerable` opens all OAuth weaknesses (loose redirect_uri, scope not enforced); `secure` runs OAuth by the book |
 | `TLS_ENABLED` | `true` | Enable TLS across services |
 
 Custom JWKS keys: place `jwks.json` in `deploy/docker/keys/` (or equivalent path for other deploy methods).

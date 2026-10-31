@@ -57,6 +57,11 @@ import org.springframework.stereotype.Service;
  * <p>Access tokens are RS256 JWTs signed by the same key as crAPI's login tokens ({@link
  * JwtProvider#generateOAuthToken}), so Workshop and Community accept them through the existing
  * {@code /identity/api/auth/verify} indirection without any change.
+ *
+ * <p>A single flag, {@code app.oauth.mode} ({@code secure} by default, or {@code vulnerable}),
+ * turns the OAuth teaching weaknesses on or off together. In {@code secure} mode the server behaves
+ * as the RFCs require; in {@code vulnerable} mode the lab's OAuth challenges open up (for example
+ * the loose redirect-URI match in {@link #isRegisteredRedirectUri}).
  */
 @Service
 @Slf4j
@@ -92,6 +97,15 @@ public class OAuthServiceImpl implements OAuthService {
   @Value("${app.oauth.codeExpiration:600000}")
   private long codeExpiration;
 
+  // "secure" (default) or "vulnerable": the single flag that turns the OAuth
+  // teaching weaknesses on or off together. See the OAuth challenge docs.
+  @Value("${app.oauth.mode:secure}")
+  private String oauthMode;
+
+  private boolean isVulnerable() {
+    return "vulnerable".equalsIgnoreCase(oauthMode);
+  }
+
   @Override
   public boolean isEnabled() {
     return oauthEnabled;
@@ -108,6 +122,18 @@ public class OAuthServiceImpl implements OAuthService {
   @Override
   public boolean isRegisteredRedirectUri(OAuthClient client, String redirectUri) {
     if (client == null || redirectUri == null || redirectUri.isBlank()) {
+      return false;
+    }
+    if (isVulnerable()) {
+      // WEAKNESS (vulnerable mode): accept any redirect URI that merely begins
+      // with a registered one. A value like "<registered>.attacker.example" or
+      // "<registered>/../evil" then passes, letting the authorization code be
+      // sent somewhere the client never registered.
+      for (String registered : client.getRedirectUriList()) {
+        if (redirectUri.startsWith(registered)) {
+          return true;
+        }
+      }
       return false;
     }
     // Exact match only: a redirect target is either registered or it is not.

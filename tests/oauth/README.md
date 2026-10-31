@@ -7,7 +7,8 @@ End-to-end checks of crAPI's OAuth 2.0 authorization server and its web UI (see
 tests/oauth/run.sh                       # API smoke test (smoke_test.py)
 tests/oauth/run.sh --ui                  # + crAPI web UI check (ui_check.py)
 tests/oauth/run.sh --dealer              # + DealerConnect end-to-end (dealer_check.py)
-tests/oauth/run.sh --build --ui --dealer # rebuild identity, web and dealer-connect first
+tests/oauth/run.sh --weaknesses          # + weakness toggles (weaknesses.py)
+tests/oauth/run.sh --build --ui --dealer # rebuild the modified services first
 ```
 
 `run.sh` waits for the services to be healthy and, **before each test, deletes all OAuth consents,
@@ -22,9 +23,9 @@ user token, refuses lookalike redirect URIs and unregistered scopes, and handles
 `scope` / `client_id` / `aud`, rejects code replay and accepts HTTP Basic for refresh; `/userinfo`
 and `/consents` work; consent is remembered; `/revoke` needs client credentials; disconnecting an
 app (user side) removes it, kills its refresh token and brings the consent prompt back. It also
-checks scope enforcement: a `profile read:vehicles` token is refused an order by Workshop (403) but
-not a coupon by Community (the intended gap), while a `write:orders` token and a first-party login
-token order fine.
+checks scope enforcement in the default secure mode: a `profile read:vehicles` token is refused an
+order by Workshop and a coupon by Community (403), while a `write:orders` token and a first-party
+login token are allowed.
 
 Python 3, standard library only.
 
@@ -44,6 +45,14 @@ container: the landing page, "Log in with crAPI", approving on crAPI's consent p
 on DealerConnect's dashboard with the user's vehicles and the parts shop, placing an order, logging
 out, logging in again without a prompt (consent remembered), and DealerConnect rejecting a callback
 with a forged `state`. Needs the full stack with `dealer-connect` up (`--dealer` starts it).
+
+## weaknesses.py — the `OAUTH_MODE` flag
+
+The whole lab's OAuth behaviour is one flag, `OAUTH_MODE` (`secure` by default, or `vulnerable`).
+This recreates the OAuth services in `vulnerable` mode and checks the weaknesses are open, then in
+`secure` mode and checks they are closed — proving both the weaknesses and that the flag gates them.
+It drives `docker compose` itself, so it changes the running lab and restores the secure default.
+Covered: loose `redirect_uri` validation, and scope not enforced. Python 3, standard library only.
 
 ## Playwright
 

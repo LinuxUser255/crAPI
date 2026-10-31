@@ -74,8 +74,8 @@ func (server *Server) InitializeRoutes() *mux.Router {
 	server.Router.HandleFunc("/community/api/v2/community/posts/{postID}/dislike", middlewares.SetMiddlewareJSON(middlewares.SetMiddlewareAuthentication(controller.DislikePost, server.DB))).Methods("POST", "OPTIONS")
 
 	//Coupon Route
-	// new-coupon needs write:orders, but Community only enforces it when
-	// ENABLE_OAUTH_SCOPE_CHECK is on; by default it is not (unlike Workshop).
+	// new-coupon needs write:orders; enforced in secure mode, skipped in
+	// vulnerable mode (the shared OAUTH_MODE flag).
 	server.Router.HandleFunc("/community/api/v2/coupon/new-coupon", middlewares.SetMiddlewareJSON(middlewares.SetMiddlewareAuthentication(middlewares.SetMiddlewareScope(controller.AddNewCoupon, "write:orders"), server.DB))).Methods("POST", "OPTIONS")
 
 	server.Router.HandleFunc("/community/api/v2/coupon/validate-coupon", middlewares.SetMiddlewareJSON(middlewares.SetMiddlewareAuthentication(controller.ValidateCoupon, server.DB))).Methods("POST", "OPTIONS")

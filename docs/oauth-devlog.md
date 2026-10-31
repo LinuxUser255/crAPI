@@ -13,7 +13,7 @@ broke and why, decisions taken, and what's next. Newest entries first within eac
 | 2 | Consent screen, Connected-apps panel, login continuation (web) | ✅ Done, verified, committed to `develop` |
 | 3 | DealerConnect client app (`services/dealer-app`) + compose/proxy | ✅ Done, verified, committed to `develop` |
 | 4 | Scope handling in Workshop / Community | ✅ Done, verified, committed to `develop` |
-| 5 | Teaching weaknesses behind `ENABLE_OAUTH_*` toggles | ⏳ Next |
+| 5 | Teaching weaknesses behind the `OAUTH_MODE` flag | 🔄 In progress — flag + 2 weaknesses committed; more to come |
 | 6 | Challenges, solutions, Postman, chatbot OpenAPI spec | ⏳ |
 
 ---
@@ -41,8 +41,55 @@ Answers to the open questions in plan §10, plus decisions made while building.
 | D15 | Two crAPI URLs: `CRAPI_PUBLIC_URL` (browser → `localhost:8889`) and `CRAPI_INTERNAL_URL` (server → `http://crapi-web`) | Adopted (phase 3) | The browser can't resolve `crapi-web`; the server shouldn't depend on the host port. The authorize redirect uses public, token/API calls use internal |
 | D16 | distroless image; container healthcheck is the binary's own `-healthcheck` mode | Adopted (phase 3) | distroless has no shell/curl for a normal healthcheck |
 | D17 | Scope is enforced only on **delegated** tokens (those with a `scope` claim); first-party login tokens pass through | Adopted (phase 4) | Keeps the web app and API keys working; realistic — a first-party session isn't scope-limited |
-| D18 | The inconsistency: **Workshop enforces `write:orders` on orders; Community does not** enforce on new-coupon | Adopted (phase 4) | One operator toggle `ENABLE_OAUTH_SCOPE_CHECK` with per-service compose defaults: Workshop `:-true`, Community `:-false`. Unset → inconsistent (the lab); `true` → secure everywhere; `false` → off everywhere |
+| D18 | ~~The inconsistency: Workshop enforces, Community does not, via `ENABLE_OAUTH_SCOPE_CHECK`~~ **Superseded by D22.** | Superseded (phase 5) | The per-service split was dropped for the single `OAUTH_MODE` flag; in secure mode both services enforce, in vulnerable mode neither does |
 | D19 | `crapi-workshop` gains a `build:` context | Adopted (phase 4) | Its source changed; without it the upstream image runs and the scope check is absent (the D8 trap again) |
+| D20 | Weaknesses are built incrementally; the first is loose redirect_uri | Adopted (phase 5) | User chose "redirect_uri first" to review the pattern before the rest |
+| D21 | Weaknesses are verified by `tests/oauth/weaknesses.py` (flips the mode, checks vulnerable then secure), not by the default suite | Adopted (phase 5) | Keeps `run.sh` (no flag) testing the secure baseline; `run.sh --weaknesses` drives the flag |
+| D22 | **One flag for the whole lab: `OAUTH_MODE` = `secure` (default) \| `vulnerable`.** Every OAuth service reads it; `vulnerable` opens all the OAuth weaknesses at once, `secure` closes them | Adopted (phase 5) | User asked for a single easy vuln/secure switch instead of per-weakness toggles. Replaces `ENABLE_OAUTH_WEAK_REDIRECT_URI` and `ENABLE_OAUTH_SCOPE_CHECK` (and the D18 per-service split) |
+| D23 | Lab ships **`OAUTH_MODE=vulnerable` by default** (set in `deploy/docker/.env`) | Adopted (phase 5) | crAPI is vulnerable out of the box; OAuth challenges live on a fresh deploy. `run.sh` pins secure for its baseline tests and restores the .env mode after (E20) |
+
+---
+
+## Phase 5 — Teaching weaknesses (in progress)
+
+**Date:** 2026-10-30 · **State:** redirect_uri weakness done, verified, not yet committed
+
+**One flag for the lab (D22):** `OAUTH_MODE` = `secure` (default) | `vulnerable`, read by identity,
+workshop and community. `secure` runs OAuth by the book; `vulnerable` opens all the OAuth
+weaknesses at once. This replaced the per-weakness toggles after the user asked for a single
+vuln/secure switch, and absorbed phase 4's scope flag (D18 superseded): in secure mode both
+resource servers enforce scope, in vulnerable mode neither does.
+
+### Weaknesses wired to the flag so far
+
+- **Loose redirect_uri validation (OWASP API8):** `OAuthServiceImpl.isRegisteredRedirectUri` — secure: exact match; vulnerable: prefix match (`startsWith`), so `<registered>.attacker.example` or `<registered>/../evil` is accepted and the authorization code goes there.
+- **Scope not enforced (OWASP API1/API5):** vulnerable mode skips the `write:orders` check in Workshop (`scope_required`) and Community (`SetMiddlewareScope`), so a delegated token is over-privileged.
+
+### Wiring
+
+- Identity `app.oauth.mode=${OAUTH_MODE:secure}`; Workshop `OAUTH_SCOPE_ENFORCED = OAUTH_MODE != vulnerable`; Community `scopeEnforcementEnabled = OAUTH_MODE != vulnerable`. Compose passes `OAUTH_MODE=${OAUTH_MODE:-secure}` to all three; `.env` documents it (one commented line).
+
+### Tests
+
+- Unit: `vulnerableModeAcceptsLookalikeRedirectUris` (OAuth tests pass).
+- `tests/oauth/weaknesses.py` (via `run.sh --weaknesses`) recreates the services in `vulnerable` then `secure`, checking the weaknesses open and close; restores `secure`.
+- `smoke_test.py` secure baseline updated: Community now also enforces scope in secure mode.
+
+**Verified:** 24 OAuth unit tests; full regression 56 (smoke) + 30 (UI) + 17 (DealerConnect) + 7
+(`--weaknesses`), all green. The `--weaknesses` run recreates the services in `vulnerable` then
+`secure`, confirming the loose redirect and scope weaknesses open and close.
+
+**Lab default (D23):** the user set `OAUTH_MODE=vulnerable` in `deploy/docker/.env`, so a fresh
+deploy ships with the OAuth challenges live — matching crAPI's "vulnerable out of the box" ethos.
+`run.sh` pins `OAUTH_MODE=secure` for its baseline tests (which assert secure behaviour) regardless
+of `.env`, and restores the `.env` mode at the end — so the test suite passes whatever the default.
+
+**E20:** committing `OAUTH_MODE=vulnerable` as the default made `run.sh`'s secure-baseline tests
+fail against a fresh stack. Fixed by pinning secure in `run.sh` for smoke/ui/dealer and restoring
+the `.env` mode afterwards.
+
+**Still to do in phase 5:** more weaknesses on the same flag (CSRF/PKCE, unverified-claim trust,
+weak client auth, consent binding, DealerConnect leak). Challenge write-ups are phase 6.
 
 ---
 
@@ -57,7 +104,7 @@ Answers to the open questions in plan §10, plus decisions made while building.
   - `OAUTH_SCOPE_ENFORCED` in `settings.py` (default true), `INSUFFICIENT_SCOPE` message.
 - **Community** (capability present, default off — the gap):
   - `auth.ExtractScope(r)` reads the `scope` claim unverified; `middlewares.SetMiddlewareScope(next, scope)` enforces it only when `ENABLE_OAUTH_SCOPE_CHECK` is true (default false). Wired onto `new-coupon`.
-- **Toggle**: one operator variable `ENABLE_OAUTH_SCOPE_CHECK`, with per-service compose defaults (Workshop `:-true`, Community `:-false`) encoding the inconsistency (D18); documented (commented) in `.env`.
+- **Toggle** (as built in phase 4; **later replaced** by `OAUTH_MODE`, see D22): `ENABLE_OAUTH_SCOPE_CHECK` with per-service defaults encoding the inconsistency.
 - **Compose**: `crapi-workshop` gains a `build:` context (D19).
 - **Tests**: `smoke_test.py` grows a scope-enforcement section (52 → 56): a narrow `profile read:vehicles` token is refused an order by Workshop (403) but not a coupon by Community; a `write:orders` token and a first-party login token both order fine.
 
@@ -249,13 +296,14 @@ cd services/web && npm run lint && npm run build
 tests/oauth/run.sh                       # API smoke test, 56 checks (incl. scope enforcement)
 tests/oauth/run.sh --ui                  # + crAPI web UI check, 30 checks (Playwright)
 tests/oauth/run.sh --dealer              # + DealerConnect end-to-end, 17 checks (Playwright)
+tests/oauth/run.sh --weaknesses          # flip each weakness toggle, verify, restore
 tests/oauth/run.sh --build --ui --dealer # rebuild the modified services first
 ```
 
 Scope enforcement specifically: a delegated token with only `profile read:vehicles` is refused an
 order by Workshop (403) but is **not** refused a coupon by Community; a `write:orders` token and a
-first-party login token both order fine. Setting `ENABLE_OAUTH_SCOPE_CHECK=true` makes Community
-enforce too (verified: new-coupon with the narrow token then returns 403).
+first-party login token both order fine. In `secure` mode (the default) Community enforces too;
+`OAUTH_MODE=vulnerable` turns enforcement off in both services. See `weaknesses.py`.
 
 See [tests/oauth/README.md](../tests/oauth/README.md). The scripts are linted in CI (shellcheck,
 bash 3.2 syntax, `py_compile`); the tests themselves need the live stack, so they are not CI jobs.
@@ -276,7 +324,9 @@ bash 3.2 syntax, `py_compile`); the tests themselves need the live stack, so the
 | ~~T8~~ | ~~Commit phase 2~~ — done | — |
 | ~~T9~~ | ~~Commit phase 3~~ — done | — |
 | ~~T10~~ | ~~Scope not enforced anywhere~~ — done (phase 4): Workshop enforces, Community is the gap | — |
-| ~~T11~~ | ~~Commit phase 4 to `develop` and mirror~~ — done 2026-10-30 | — |
+| ~~T11~~ | ~~Commit phase 4~~ — done | — |
+| T12 | Finish the remaining phase-5 weaknesses (CSRF/PKCE, claim trust, client auth, consent binding, DealerConnect leak) | 5 |
+| ~~T13~~ | ~~Commit phase 5 (OAUTH_MODE flag + 2 weaknesses) to `develop` and mirror~~ — done 2026-10-30 | — |
 
 ---
 
@@ -288,7 +338,7 @@ weakness class + OWASP category (step-by-step goes in `challenges.md`):
 
 - Loose `redirect_uri` validation (API8) — a toggle that relaxes the exact-match rule in `OAuthServiceImpl.isRegisteredRedirectUri`.
 - Missing CSRF/PKCE protection on the flow (API2).
-- The scope gap is already live as a default (phase 4, D18); `ENABLE_OAUTH_SCOPE_CHECK=true` is its "secure mode".
+- Scope enforcement is folded into the `OAUTH_MODE` flag (D22): `vulnerable` disables it, the over-privileged-token lesson.
 - Over-trust of unverified token claims (API2) — reuses the existing verify-vs-decode indirection.
 - Weak client authentication / secret handling (API2/API8).
 - Token/code leakage via the client app (API2) — DealerConnect grows an optional leak behind a toggle.

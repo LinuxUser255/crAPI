@@ -83,6 +83,20 @@ public class OAuthServiceImplTest {
   }
 
   @Test
+  public void vulnerableModeAcceptsLookalikeRedirectUris() {
+    // In vulnerable mode a prefix match is used instead of an exact one.
+    ReflectionTestUtils.setField(oAuthService, "oauthMode", "vulnerable");
+    OAuthClient client = getDummyClient();
+    Assertions.assertTrue(oAuthService.isRegisteredRedirectUri(client, REDIRECT_URI));
+    Assertions.assertTrue(
+        oAuthService.isRegisteredRedirectUri(client, REDIRECT_URI + ".attacker.example"));
+    Assertions.assertTrue(oAuthService.isRegisteredRedirectUri(client, REDIRECT_URI + "/../evil"));
+    // A URI that does not begin with a registered one is still refused.
+    Assertions.assertFalse(
+        oAuthService.isRegisteredRedirectUri(client, "http://evil.example/oauth/callback"));
+  }
+
+  @Test
   public void validateScopeAcceptsSubsetOfRegisteredScopes() {
     OAuthClient client = getDummyClient();
     Assertions.assertEquals("read:vehicles", oAuthService.validateScope(client, "read:vehicles"));

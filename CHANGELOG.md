@@ -4,13 +4,23 @@ Releases of this crAPI lab fork. Each `## [vX.Y.Z]` section becomes the notes of
 
 ## [Unreleased]
 
+### OAuth 2.0 (phase 5 of 6, in progress)
+
+- **One flag for the whole OAuth lab: `OAUTH_MODE` = `secure` or `vulnerable`.** Setting
+  `OAUTH_MODE=vulnerable` opens all the OAuth challenges at once; `secure` runs OAuth by the book.
+  It replaces the earlier per-weakness toggles and the phase-4 scope flag. The lab ships
+  `OAUTH_MODE=vulnerable` in `deploy/docker/.env`, so the OAuth challenges are live out of the box.
+- Weaknesses wired to it so far: **loose `redirect_uri` validation** (prefix match instead of exact,
+  so a lookalike like `<registered>.attacker.example` is accepted — OWASP API8) and **scope not
+  enforced** (a delegated token becomes over-privileged — OWASP API1/API5). `tests/oauth/run.sh
+  --weaknesses` recreates the stack in each mode and verifies the weaknesses open and close.
+
 ### OAuth 2.0 (phase 4 of 6)
 
-- Resource servers now read a delegated token's `scope`. **Workshop requires `write:orders`** to
-  place an order; a token without it gets 403. First-party logins (no scope claim) are unaffected.
-- **Community deliberately does not enforce scope** on coupon creation — the intended inconsistency
-  for the lab. `ENABLE_OAUTH_SCOPE_CHECK=true` turns enforcement on in both services ("secure mode");
-  unset leaves the gap; `false` disables it in both.
+- Resource servers now read a delegated token's `scope`. **Workshop and Community require
+  `write:orders`** to place an order / create a coupon; a token without it gets 403. First-party
+  logins (no scope claim) are unaffected. (Enforcement is driven by the `OAUTH_MODE` flag added in
+  phase 5: enforced in `secure`, skipped in `vulnerable`.)
 
 ### OAuth 2.0 (phase 3 of 6)
 

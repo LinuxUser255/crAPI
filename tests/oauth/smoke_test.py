@@ -334,10 +334,9 @@ def main():
     status, _ = call("POST", BASE + "/workshop/api/shop/orders", order_body, token=user_token)
     check("Workshop still allows a first-party login token", status == 200, status)
 
-    # Community does NOT enforce scope by default: the same narrow token that
-    # Workshop refused can still create a coupon here. That gap is the lesson.
+    # Community enforces the same scope in secure mode (the default).
     status, _ = call("POST", BASE + "/community/api/v2/coupon/new-coupon", coupon_body, token=narrow_token)
-    check("Community does not enforce scope on new-coupon (not 403)", status != 403, status)
+    check("Community refuses a coupon without write:orders (secure mode)", status == 403, status)
 
     print("\n== disconnect the app (user side) ==")
     # A fresh grant, so there is a live refresh token for disconnect to kill.
