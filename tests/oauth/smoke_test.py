@@ -122,6 +122,22 @@ def main():
         "advertises both grants",
         set(field(meta, "grant_types_supported") or []) == {"authorization_code", "refresh_token"},
     )
+    check(
+        "authorization_endpoint is the web consent page",
+        str(field(meta, "authorization_endpoint")).endswith("/oauth-authorize"),
+        field(meta, "authorization_endpoint"),
+    )
+
+    print("\n== consent page is served by the web app ==")
+    request = urllib.request.Request(
+        BASE + "/oauth-authorize?client_id=" + CLIENT_ID, headers={"Accept": "text/html"}
+    )
+    try:
+        with urllib.request.urlopen(request) as response:
+            html = response.read().decode(errors="replace")
+            check("GET /oauth-authorize returns the SPA", response.status == 200 and "<div id=\"root\"" in html)
+    except urllib.error.URLError as error:
+        check("GET /oauth-authorize returns the SPA", False, error)
 
     print("\n== login ==")
     status, body = call(
@@ -287,6 +303,39 @@ def main():
         status == 400 and field(body, "error") == "invalid_grant",
         (status, body),
     )
+
+    print("\n== disconnect the app (user side) ==")
+    # A fresh grant, so there is a live refresh token for disconnect to kill.
+    status, body = call("POST", OAUTH + "/authorize", approve, token=user_token, form=True)
+    fresh_code = urllib.parse.parse_qs(urllib.parse.urlparse(field(body, "redirect_url") or "").query).get(
+        "code", [""]
+    )[0]
+    status, fresh = call("POST", OAUTH + "/token", dict(exchange, code=fresh_code), form=True)
+    check("fresh grant for the disconnect test", status == 200 and field(fresh, "refresh_token"), (status, fresh))
+
+    disconnect_url = OAUTH + "/consents/" + CLIENT_ID
+    status, _ = call("DELETE", disconnect_url)
+    check("disconnect without a user token -> 401", status == 401, status)
+    status, _ = call("DELETE", disconnect_url, token=user_token)
+    check("disconnect returns 204", status == 204, status)
+    status, consents = call("GET", OAUTH + "/consents", token=user_token)
+    check("app no longer listed", status == 200 and consents == [], consents)
+    status, body = call(
+        "POST",
+        OAUTH + "/token",
+        {"grant_type": "refresh_token", "refresh_token": field(fresh, "refresh_token") or ""},
+        form=True,
+        basic=client_basic,
+    )
+    check(
+        "the app's refresh token stops working",
+        status == 400 and field(body, "error") == "invalid_grant",
+        (status, body),
+    )
+    status, info = call("GET", f"{OAUTH}/authorize?{query}", token=user_token)
+    check("consent is asked for again", field(info, "consent_required") is True, info)
+    status, body = call("DELETE", disconnect_url, token=user_token)
+    check("disconnecting twice -> 404", status == 404, (status, body))
 
     finish()
 

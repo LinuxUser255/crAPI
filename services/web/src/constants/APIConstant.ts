@@ -81,4 +81,7 @@ export const requestURLS: RequestURLSType = {
   VALIDATE_COUPON: "api/v2/coupon/validate-coupon",
   NEW_COUPON: "api/v2/coupon/new-coupon",
   VALIDATE_TOKEN: "api/auth/verify",
+  OAUTH_AUTHORIZE: "api/oauth/authorize",
+  OAUTH_CONSENTS: "api/oauth/consents",
+  OAUTH_CONSENT: "api/oauth/consents/<clientId>",
 };

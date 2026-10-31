@@ -58,6 +58,7 @@ import {
   uploadVideoAction,
 } from "../../actions/profileActions";
 import responseTypes from "../../constants/responseTypes";
+import ConnectedAppsContainer from "../../containers/connectedApps/connectedApps";
 
 const { Content } = Layout;
 const { Meta } = Card;
@@ -382,6 +383,8 @@ const Profile: React.FC<PropsFromRedux> = (props) => {
             <div className="video-player-container">{renderVideo()}</div>
           )}
         </Card>
+
+        <ConnectedAppsContainer />
       </Content>
       <Modal
         title={<span className="modal-title">📹 Enter New Video Name</span>}

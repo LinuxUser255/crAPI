@@ -17,7 +17,7 @@ import "./layout.css";
 
 import React, { useState, useEffect } from "react";
 
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Layout, Spin } from "antd";
 import { connect, ConnectedProps } from "react-redux";
 import LoginContainer from "../../containers/login/login";
@@ -47,8 +47,9 @@ import {
   logOutUserAction,
   validateAccessTokenAction,
 } from "../../actions/userActions";
-import { isAccessTokenValid } from "../../utils";
+import { isAccessTokenValid, pathAfterLogin } from "../../utils";
 import ChangePhoneNumber from "../changePhoneNumber/changePhoneNumber";
+import OAuthAuthorizeContainer from "../../containers/oauthAuthorize/oauthAuthorize";
 
 const { Content } = Layout;
 
@@ -93,10 +94,11 @@ const AfterLogin: React.FC<AfterLoginProps> = ({
   accessToken,
   logOutUser,
 }) => {
-  // ... existing useEffect ...
+  // Remembered so login can bring the user back here (e.g. to an OAuth consent request).
+  const location = useLocation();
 
   if (!isLoggedIn) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" state={{ from: location }} />;
   }
 
   if (!isAccessTokenValid(accessToken || "")) {
@@ -105,7 +107,7 @@ const AfterLogin: React.FC<AfterLoginProps> = ({
         localStorage.clear();
       },
     });
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" state={{ from: location }} />;
   }
 
   if (
@@ -135,7 +137,12 @@ const BeforeLogin: React.FC<BeforeLoginProps> = ({
   component: Component,
   isLoggedIn,
 }) => {
-  return isLoggedIn ? <Navigate to="/dashboard" /> : <Component />;
+  const location = useLocation();
+  return isLoggedIn ? (
+    <Navigate to={pathAfterLogin(location.state)} />
+  ) : (
+    <Component />
+  );
 };
 
 const mapStateToProps = (state: RootState) => ({
@@ -265,6 +272,18 @@ const StyledComp: React.FC<PropsFromRedux> = (props) => {
               element={
                 <AfterLogin
                   component={ResetPasswordContainer}
+                  isLoggedIn={props.isLoggedIn}
+                  userRole={props.role}
+                  accessToken={props.accessToken}
+                  logOutUser={props.logOutUser}
+                />
+              }
+            />
+            <Route
+              path="/oauth-authorize"
+              element={
+                <AfterLogin
+                  component={OAuthAuthorizeContainer}
                   isLoggedIn={props.isLoggedIn}
                   userRole={props.role}
                   accessToken={props.accessToken}

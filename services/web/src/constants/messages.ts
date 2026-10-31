@@ -115,3 +115,9 @@ export const SERVICE_REQUEST_SENT: string =
   "Service Request sent to the mechanic";
 export const SERVICE_REQUEST_NOT_SENT: string = "Could not contact mechanic";
 export const LOC_NOT_REFRESHED: string = "Could not refresh location";
+export const OAUTH_REQUEST_FAILED: string =
+  "Could not load this authorization request";
+export const OAUTH_DECISION_FAILED: string = "Could not record your decision";
+export const NO_CONNECTED_APPS: string = "Could not load your connected apps";
+export const APP_DISCONNECTED: string = "App disconnected";
+export const APP_NOT_DISCONNECTED: string = "Could not disconnect the app";
